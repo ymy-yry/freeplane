@@ -52,18 +52,6 @@ class ChatMessageHistory {
         return messageEntries.size();
     }
 
-    String markdownTextForSelection(int selectionStart, int selectionEnd) {
-        if (selectionStart == selectionEnd) {
-            MessageEntry containingEntry = containingEntryForCaret(selectionStart);
-            return containingEntry == null ? null : containingEntry.sourceText;
-        }
-        List<MessageEntry> selectedEntries = intersectedEntries(selectionStart, selectionEnd);
-        if (selectedEntries.isEmpty()) {
-            return null;
-        }
-        return joinSourceText(selectedEntries);
-    }
-
     Transferable createTransferable(int selectionStart, int selectionEnd) {
         if (selectionStart == selectionEnd) {
             return null;
@@ -116,32 +104,18 @@ class ChatMessageHistory {
     }
 
     private Transferable createEntryTransferable(int selectionStart, int selectionEnd) {
-        List<MessageEntry> selectedEntries = intersectedEntries(selectionStart, selectionEnd);
+        List<MessageEntry> selectedEntries = new ArrayList<>();
+        for (MessageEntry entry : messageEntries) {
+            if (selectionStart < entry.endOffset && selectionEnd > entry.startOffset) {
+                selectedEntries.add(entry);
+            }
+        }
         if (selectedEntries.isEmpty()) {
             return null;
         }
         String plainText = joinSourceText(selectedEntries);
         String markupText = wrapMarkup(joinMarkup(selectedEntries));
         return new ChatMessageTransferable(plainText, markupText);
-    }
-
-    private List<MessageEntry> intersectedEntries(int selectionStart, int selectionEnd) {
-        List<MessageEntry> selectedEntries = new ArrayList<>();
-        for (MessageEntry entry : messageEntries) {
-            if (entry.intersects(selectionStart, selectionEnd)) {
-                selectedEntries.add(entry);
-            }
-        }
-        return selectedEntries;
-    }
-
-    private MessageEntry containingEntryForCaret(int caretOffset) {
-        for (MessageEntry entry : messageEntries) {
-            if (entry.containsInteriorOffset(caretOffset)) {
-                return entry;
-            }
-        }
-        return null;
     }
 
     private MessageEntry findContainingEntry(int selectionStart, int selectionEnd) {
@@ -217,14 +191,6 @@ class ChatMessageHistory {
             this.sourceText = sourceText;
             this.messageMarkup = messageMarkup;
             this.styleClassName = styleClassName;
-        }
-
-        boolean intersects(int selectionStart, int selectionEnd) {
-            return selectionStart < endOffset && selectionEnd > startOffset;
-        }
-
-        boolean containsInteriorOffset(int caretOffset) {
-            return startOffset < caretOffset && caretOffset < endOffset;
         }
     }
 

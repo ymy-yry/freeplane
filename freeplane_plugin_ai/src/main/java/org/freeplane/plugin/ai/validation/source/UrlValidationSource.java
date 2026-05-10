@@ -5,9 +5,9 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 /**
- * 远程 URL 数据源(预留)。
- * 
- * <p>按需实现,当前仅占位。
+ * Remote URL data source (reserved for future use).
+ *
+ * <p>Placeholder implementation; extend as needed.
  */
 public final class UrlValidationSource implements ValidationSource {
     
@@ -35,7 +35,7 @@ public final class UrlValidationSource implements ValidationSource {
     
     @Override
     public boolean isReady() {
-        // 异步检查连通性(简化为同步检查)
+        // simplified synchronous connectivity check
         try {
             url.openConnection().connect();
             return true;

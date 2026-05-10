@@ -29,22 +29,21 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * AI 相关接口控制器。
- * 负责处理 /api/ai/* 路径下的请求，包括：
- * 
- * Chat区（/api/ai/chat/）：
- * - GET /api/ai/chat/models - 获取可用模型列表
- * - POST /api/ai/chat/message - AI对话
- * - POST /api/ai/chat/smart - 智能缓冲层
- * 
- * Build区（/api/ai/build/）：
- * - POST /api/ai/build/expand-node - 节点扩展
- * - POST /api/ai/build/summarize - 分支摘要
- * - POST /api/ai/build/generate-mindmap - 生成思维导图
- * - POST /api/ai/build/tag - 自动标签
+ * REST controller for AI-related endpoints under /api/ai/*.
  *
- * Config区（/api/ai/config/）：
- * - POST /api/ai/config/save - 保存模型配置
+ * Chat section (/api/ai/chat/):
+ * - GET  /api/ai/chat/models  - list available models
+ * - POST /api/ai/chat/message - single-turn chat
+ * - POST /api/ai/chat/smart   - smart buffer layer request
+ *
+ * Build section (/api/ai/build/):
+ * - POST /api/ai/build/expand-node      - expand a node with AI
+ * - POST /api/ai/build/summarize        - summarize a branch
+ * - POST /api/ai/build/generate-mindmap - generate a full mindmap
+ * - POST /api/ai/build/tag              - auto-tag nodes
+ *
+ * Config section (/api/ai/config/):
+ * - POST /api/ai/config/save - persist model configuration
  */
 public class AiRestController {
 
@@ -62,8 +61,8 @@ public class AiRestController {
 
     /**
      * POST /api/ai/config/save
-     * 保存前端模型配置（providerName, apiKey, baseUrl, modelName）到 ResourceController。
-     * 支持的 provider：ernie, openrouter, gemini, ollama。
+     * Saves frontend model config (providerName, apiKey, baseUrl, modelName) to ResourceController.
+     * Supported providers: ernie, openrouter, gemini, ollama.
      */
     public void handleSaveConfig(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -88,15 +87,15 @@ public class AiRestController {
             ResourceController rc = ResourceController.getResourceController();
             String prefix = providerName.toLowerCase().trim();
 
-            // 写入 API Key
+            // Write API key.
             rc.setProperty("ai_" + prefix + "_key", apiKey.trim());
 
-            // 写入 Base URL（若提供）
+            // Write base URL (if provided).
             if (baseUrl != null && !baseUrl.trim().isEmpty()) {
                 rc.setProperty("ai_" + prefix + "_service_address", baseUrl.trim());
             }
 
-            // 写入模型名（若提供），同时更新 selected_model
+            // Write model name (if provided) and update selected_model.
             if (modelName != null && !modelName.trim().isEmpty()) {
                 rc.setProperty("ai_selected_model", prefix + "|" + modelName.trim());
             }
@@ -113,8 +112,8 @@ public class AiRestController {
 
     /**
      * GET /api/ai/chat/models
-     * 返回当前配置下可用的 AI 模型列表（动态从 AIChatPanel 获取）。
-     * 数据来源与 Swing 面板中的模型选择器保持一致。
+     * Returns the list of available AI models for the current configuration (dynamically built from provider settings).
+     * The data source is consistent with the model selector in the Swing panel.
      */
     public void handleGetModels(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -123,7 +122,7 @@ public class AiRestController {
         try {
             List<Map<String, Object>> modelList = new ArrayList<>();
 
-            // 读取各 Provider 配置，动态构建模型列表（与 Swing UI 数据来源一致）
+            // Read each provider's config and build the model list dynamically (same data source as the Swing UI).
             ResourceController rc = ResourceController.getResourceController();
 
             String openrouterKey = rc.getProperty("ai_openrouter_key", "");
@@ -181,7 +180,7 @@ public class AiRestController {
 
     /**
      * POST /api/ai/chat/message
-     * AI 对话接口（使用AIService架构）。
+     * Single-turn chat endpoint (uses AIService architecture).
      */
     public void handleChat(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -199,7 +198,7 @@ public class AiRestController {
                 return;
             }
     
-            // 构建请求参数
+            // Build request parameters.
             Map<String, Object> request = new LinkedHashMap<>();
             request.put("serviceType", "chat");
             request.put("message", message);
@@ -207,7 +206,7 @@ public class AiRestController {
             request.put("mapId", mapId);
             request.put("selectedNodeId", selectedNodeId);
     
-            // 使用AIService处理请求
+            // Dispatch to the appropriate AIService.
             AIService service = AIServiceLoader.selectService(request);
             if (service == null) {
                 sendError(exchange, 500, "No chat service available");
@@ -228,9 +227,9 @@ public class AiRestController {
 
     /**
      * POST /api/ai/chat/stream
-     * AI 流式对话接口（SSE）。
-     * 响应格式：text/event-stream，每条消息格式为 "data: <token>\n\n"，
-     * 完成时发送 "data: [DONE]\n\n"，出错时发送 "data: [ERROR] <message>\n\n"。
+     * Streaming chat endpoint (SSE).
+     * Response format: text/event-stream. Each event: "data: &lt;token&gt;\n\n".
+     * Completion signal: "data: [DONE]\n\n". Error signal: "data: [ERROR] &lt;message&gt;\n\n".
      */
     public void handleChatStream(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -318,7 +317,7 @@ public class AiRestController {
 
     /**
      * POST /api/ai/build/generate-mindmap
-     * AI 一键生成思维导图（使用AIService架构）。
+     * AI one-click mindmap generation (uses AIService architecture).
      */
     public void handleGenerateMindMap(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -337,8 +336,8 @@ public class AiRestController {
     
             LogUtils.info("AiRestController.handleGenerateMindMap: topic=" + topic + ", maxDepth=" + maxDepth);
     
-            // 使用 BufferLayerRouter 处理请求（与 Auto 模式相同，在后端直接创建节点）
-            BufferRequest bufferRequest = new BufferRequest("生成思维导图：" + topic);
+            // Route through BufferLayerRouter (same as Auto mode – nodes are created directly in the backend).
+            BufferRequest bufferRequest = new BufferRequest("Generate mindmap: " + topic);
             bufferRequest.setRequestType(BufferRequest.RequestType.MINDMAP_GENERATION);
             bufferRequest.addParameter("topic", topic);
             bufferRequest.addParameter("maxDepth", maxDepth);
@@ -349,7 +348,7 @@ public class AiRestController {
             BufferResponse bufferResponse = bufferLayerRouter.processRequest(bufferRequest);
             
             if (bufferResponse.isSuccess()) {
-                // 构建响应数据
+                // Build response payload.
                 Map<String, Object> responseData = new LinkedHashMap<>();
                 responseData.put("success", true);
                 responseData.put("topic", topic);
@@ -370,7 +369,7 @@ public class AiRestController {
 
     /**
      * POST /api/ai/build/expand-node
-     * AI 展开节点（使用AIService架构）。
+     * AI node expansion (uses AIService architecture).
      */
     public void handleExpandNode(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -379,17 +378,17 @@ public class AiRestController {
         try {
             Map<?, ?> body = readBody(exchange);
             String nodeId = (String) body.get("nodeId");
-            String mapId = (String) body.get("mapId");          // 必须：目标导图标识
-            Integer depth = body.get("depth") instanceof Number ? ((Number) body.get("depth")).intValue() : null;   // 非必须：展开层级
-            Integer count = body.get("count") instanceof Number ? ((Number) body.get("count")).intValue() : null;   // 非必须：生成节点数
-            String focus = (String) body.get("focus");          // 非必须：展开方向提示
+            String mapId = (String) body.get("mapId");          // required: target map identifier
+            Integer depth = body.get("depth") instanceof Number ? ((Number) body.get("depth")).intValue() : null;   // optional: expansion depth
+            Integer count = body.get("count") instanceof Number ? ((Number) body.get("count")).intValue() : null;   // optional: number of nodes to generate
+            String focus = (String) body.get("focus");          // optional: expansion direction hint
 
             if (nodeId == null) {
                 sendError(exchange, 400, "nodeId is required");
                 return;
             }
 
-            // 构建请求参数
+            // Build request parameters.
             Map<String, Object> request = new LinkedHashMap<>();
             request.put("serviceType", "agent");
             request.put("action", "expand-node");
@@ -399,7 +398,7 @@ public class AiRestController {
             request.put("count", count);
             request.put("focus", focus);
 
-            // 使用AIService处理请求
+            // Dispatch to the appropriate AIService.
             AIService service = AIServiceLoader.selectService(request);
             if (service == null) {
                 sendError(exchange, 500, "No agent service available");
@@ -420,7 +419,7 @@ public class AiRestController {
 
     /**
      * POST /api/ai/build/summarize
-     * 分支摘要（使用AIService架构）。
+     * Branch summarization (uses AIService architecture).
      */
     public void handleSummarize(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -429,16 +428,16 @@ public class AiRestController {
         try {
             Map<?, ?> body = readBody(exchange);
             String nodeId = (String) body.get("nodeId");
-            String mapId = (String) body.get("mapId");              // 必须：目标导图标识
-            Integer maxWords = body.get("maxWords") instanceof Number ? ((Number) body.get("maxWords")).intValue() : null; // 非必须
-            boolean writeToNote = Boolean.TRUE.equals(body.get("writeToNote")); // 非必须
+            String mapId = (String) body.get("mapId");              // required: target map identifier
+            Integer maxWords = body.get("maxWords") instanceof Number ? ((Number) body.get("maxWords")).intValue() : null; // optional
+            boolean writeToNote = Boolean.TRUE.equals(body.get("writeToNote")); // optional
 
             if (nodeId == null) {
                 sendError(exchange, 400, "nodeId is required");
                 return;
             }
 
-            // 构建请求参数
+            // Build request parameters.
             Map<String, Object> request = new LinkedHashMap<>();
             request.put("serviceType", "agent");
             request.put("action", "summarize");
@@ -447,7 +446,7 @@ public class AiRestController {
             request.put("maxWords", maxWords);
             request.put("writeToNote", writeToNote);
 
-            // 使用AIService处理请求
+            // Dispatch to the appropriate AIService.
             AIService service = AIServiceLoader.selectService(request);
             if (service == null) {
                 sendError(exchange, 500, "No agent service available");
@@ -468,9 +467,9 @@ public class AiRestController {
 
     /**
      * POST /api/ai/build/summarize-stream
-     * 分支摘要 SSE 流式接口。
-     * 响应格式：text/event-stream，每条消息格式为 "data: <token>\n\n"，
-     * 完成时发送 "data: [DONE]\n\n"，出错时发送 "data: [ERROR] <message>\n\n"。
+     * Branch summarization SSE streaming endpoint.
+     * Response format: text/event-stream. Each event: "data: &lt;token&gt;\n\n".
+     * Completion signal: "data: [DONE]\n\n". Error signal: "data: [ERROR] &lt;message&gt;\n\n".
      */
     public void handleSummarizeStream(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -492,7 +491,7 @@ public class AiRestController {
         Integer maxWords = body.get("maxWords") instanceof Number
             ? ((Number) body.get("maxWords")).intValue() : null;
 
-        // 获取 DefaultAgentService 单例
+        // Retrieve the DefaultAgentService singleton.
         AIService service = AIServiceLoader.getServiceByName("default_agent_service");
         if (!(service instanceof DefaultAgentService)) {
             sendError(exchange, 500, "Agent service not available");
@@ -560,7 +559,7 @@ public class AiRestController {
 
     /**
      * POST /api/ai/build/tag
-     * 自动关键词标签（使用AIService架构）。
+     * Automatic keyword tagging (uses AIService architecture).
      */
     public void handleTag(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -568,23 +567,23 @@ public class AiRestController {
     
         try {
             Map<?, ?> body = readBody(exchange);
-            String mapId = (String) body.get("mapId");          // 必须：目标导图标识
+            String mapId = (String) body.get("mapId");          // required: target map identifier
             @SuppressWarnings("unchecked")
-            List<String> nodeIds = (List<String>) body.get("nodeIds"); // 必须：待提取标签的节点 ID 数组
+            List<String> nodeIds = (List<String>) body.get("nodeIds"); // required: array of node IDs to tag
     
             if (nodeIds == null || nodeIds.isEmpty()) {
                 sendError(exchange, 400, "nodeIds is required and must not be empty");
                 return;
             }
     
-            // 构建请求参数
+            // Build request parameters.
             Map<String, Object> request = new LinkedHashMap<>();
             request.put("serviceType", "agent");
             request.put("action", "tag");
             request.put("mapId", mapId);
             request.put("nodeIds", nodeIds);
     
-            // 使用AIService处理请求
+            // Dispatch to the appropriate AIService.
             AIService service = AIServiceLoader.selectService(request);
             if (service == null) {
                 sendError(exchange, 500, "No agent service available");
@@ -605,7 +604,8 @@ public class AiRestController {
     
     /**
      * POST /api/ai/chat/smart
-     * 智能缓冲层接口。用户输入自然语言，系统自动理解、优化、选择模型并返回结果。
+     * Smart buffer-layer endpoint. The system automatically interprets the natural-language input,
+     * optimises the prompt, selects a model, and returns the result.
      */
     public void handleSmartRequest(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -622,18 +622,18 @@ public class AiRestController {
     
             LogUtils.info("AiRestController.handleSmartRequest: received input - " + input);
     
-            // 构建请求参数
+            // Build request parameters.
             Map<String, Object> request = new LinkedHashMap<>();
             request.put("input", input);
     
-            // 先尝试使用缓冲层处理
+            // Try the buffer layer first.
             try {
-                // 创建缓冲层请求
+                // Create a buffer-layer request.
                 BufferRequest bufferRequest = new BufferRequest(input);
-                // 委托给缓冲层路由器处理
+                // Delegate to the buffer-layer router.
                 BufferResponse bufferResponse = bufferLayerRouter.processRequest(bufferRequest);
                 
-                // 构建 HTTP 响应
+                // Build the HTTP response.
                 Map<String, Object> responseBody = new LinkedHashMap<>();
                 responseBody.put("success", bufferResponse.isSuccess());
                 responseBody.put("usedModel", bufferResponse.getUsedModel());
@@ -652,7 +652,7 @@ public class AiRestController {
             } catch (Exception e) {
                 LogUtils.warn("Buffer layer failed, falling back to AIService", e);
                 
-                // 缓冲层失败时，回退到AIService
+                // Fall back to AIService when the buffer layer fails.
                 request.put("serviceType", "chat");
                 request.put("message", input);
                 
@@ -676,14 +676,14 @@ public class AiRestController {
     }
 
     /**
-     * 执行 AI 对话（调用 AIChatPanel 的 chatService）
+     * Executes an AI chat request by delegating to AIChatPanel's chatService.
      */
     private String executeChat(String message, String modelSelection) {
         try {
-            // 使用 AIChatPanel 的公开方法发送消息
-            // 由于 AIChatPanel 是 Swing 组件,我们需要通过其内部机制调用
-            // 这里先返回一个占位响应,实际需要通过反射或修改 AIChatPanel 添加公开方法
-            return "[AI Response] 对话功能已接入,回复:" + message;
+            // Use AIChatPanel's public method to send the message.
+            // Since AIChatPanel is a Swing component, we call it through its internal mechanism.
+            // This is a placeholder response; a proper public method on AIChatPanel should be added.
+            return "[AI Response] Chat connected, reply: " + message;
         } catch (Exception e) {
             LogUtils.warn("Failed to execute chat", e);
             return "[AI Error] " + e.getMessage();
@@ -691,34 +691,34 @@ public class AiRestController {
     }
 
     /**
-     * 构建思维导图生成的 Prompt
+     * Builds the prompt for mindmap generation.
      */
     private String buildMindMapPrompt(String topic, int maxDepth) {
         return String.format(
-            "请为'%s'生成一个完整的思维导图结构。\n" +
-            "\n要求：\n" +
-            "1. 包含 %d 层级的节点\n" +
-            "2. 每个节点内容具体、有价值\n" +
-            "3. 返回严格的 JSON 格式,不要其他文字\n" +
-            "\n返回格式示例：\n" +
+            "Generate a complete mindmap structure for '%s'.\n" +
+            "\nRequirements:\n" +
+            "1. Include %d levels of nodes\n" +
+            "2. Each node should have specific, meaningful content\n" +
+            "3. Return strict JSON format only, no extra text\n" +
+            "\nExample return format:\n" +
             "{\n" +
             "  \"text\": \"%s\",\n" +
             "  \"children\": [\n" +
-            "    {\"text\": \"一级分支1\", \"children\": [{\"text\": \"二级分支1.1\"}]},\n" +
-            "    {\"text\": \"一级分支2\"}\n" +
+            "    {\"text\": \"Branch 1\", \"children\": [{\"text\": \"Sub-branch 1.1\"}]},\n" +
+            "    {\"text\": \"Branch 2\"}\n" +
             "  ]\n" +
             "}\n" +
-            "\n请只返回 JSON,不要Markdown代码块标记。",
+            "\nReturn JSON only, without Markdown code-block markers.",
             topic, maxDepth, topic
         );
     }
 
     /**
-     * 从 AI 响应解析并创建思维导图节点
+     * Parses the AI response and creates mindmap nodes accordingly.
      */
     private int createMindMapFromAIResponse(MapModel mapModel, String aiResponse, String topic) {
         try {
-            // 清理 AI 响应,移除可能的 Markdown 标记
+            // Strip possible Markdown code-block markers from the AI response.
             String cleanedJson = aiResponse.trim();
             if (cleanedJson.startsWith("```json")) {
                 cleanedJson = cleanedJson.substring(7);
@@ -731,11 +731,11 @@ public class AiRestController {
             }
             cleanedJson = cleanedJson.trim();
 
-            // 解析 JSON
+            // Parse JSON.
             @SuppressWarnings("unchecked")
             Map<String, Object> mindMapData = objectMapper.readValue(cleanedJson, Map.class);
 
-            // 获取 MMapController
+            // Obtain MMapController.
             org.freeplane.features.mode.Controller controller = org.freeplane.features.mode.Controller.getCurrentController();
             if (controller == null) {
                 LogUtils.warn("Controller not available");
@@ -747,17 +747,17 @@ public class AiRestController {
             org.freeplane.features.map.mindmapmode.MMapController mapController = 
                 (org.freeplane.features.map.mindmapmode.MMapController) modeController.getMapController();
 
-            // 设置根节点文本
+            // Set root node text.
             NodeModel rootNode = mapModel.getRootNode();
             rootNode.setText(topic);
             mapController.nodeChanged(rootNode);
 
-            // 递归创建子节点
+            // Recursively create child nodes.
             @SuppressWarnings("unchecked")
             java.util.List<Map<String, Object>> children = 
                 (java.util.List<Map<String, Object>>) mindMapData.get("children");
             
-            int[] nodeCount = {1}; // 包括根节点
+            int[] nodeCount = {1}; // includes root
             if (children != null) {
                 createNodesRecursive(rootNode, children, mapController, nodeCount);
             }
@@ -770,7 +770,7 @@ public class AiRestController {
     }
 
     /**
-     * 递归创建节点
+     * Recursively creates child nodes.
      */
     @SuppressWarnings("unchecked")
     private void createNodesRecursive(NodeModel parentNode, 
@@ -790,7 +790,7 @@ public class AiRestController {
             );
             nodeCount[0]++;
 
-            // 递归创建子节点
+            // Recurse into sub-children.
             java.util.List<Map<String, Object>> subChildren = 
                 (java.util.List<Map<String, Object>>) childData.get("children");
             if (subChildren != null && !subChildren.isEmpty()) {
@@ -800,7 +800,7 @@ public class AiRestController {
     }
 
     // ──────────────────────────────────────────────
-    // 内部工具方法
+    // Internal helpers
     // ──────────────────────────────────────────────
 
     private String buildProviderDisplayName(String providerName) {

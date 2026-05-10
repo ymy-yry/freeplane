@@ -5,26 +5,27 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 完全背包动态规划策略 - 资源约束下的最优工具选择
+ * Unbounded knapsack dynamic-programming strategy — optimal tool selection under resource constraints.
  * 
- * <p>算法原理：
- * <p>在时间/空间预算约束下，选择最优工具组合以最大化价值（覆盖节点数）。
+ * <p>Algorithm:
+ * <p>Selects the optimal combination of tools to maximise value (node coverage) subject to
+ * time/space budget constraints.
  * 
- * <p>状态定义：
+ * <p>State definition:
  * <pre>
- * dp[t][s] = 使用时间t和空间s能获得的最大价值
+ * dp[t][s] = maximum value achievable with time t and space s
  * </pre>
  * 
- * <p>状态转移：
+ * <p>Recurrence:
  * <pre>
  * dp[t][s] = max{ dp[t - time[i]][s - space[i]] + value[i] }
  * </pre>
  * 
- * <p>复杂度分析：
+ * <p>Complexity:
  * <ul>
- *   <li>时间复杂度：O(|F|·T·S)，|F|为工具数，T为时间预算，S为空间预算</li>
- *   <li>空间复杂度：O(T·S)</li>
- *   <li>适用规模：T·S ≤ 10^6</li>
+ *   <li>Time: O(|F|·T·S), where |F| = number of tools, T = time budget, S = space budget</li>
+ *   <li>Space: O(T·S)</li>
+ *   <li>Practical limit: T·S ≤ 10^6</li>
  * </ul>
  * 
  * @author AI Plugin Team
@@ -36,13 +37,13 @@ public class KnapsackDPStrategy implements ToolExecutionStrategy {
     
     @Override
     public boolean supports(String toolName, Map<String, Object> parameters) {
-        // 支持所有需要资源优化的工具
+        // supports all tools that require resource optimisation
         if (!"createNodes".equals(toolName) && !"edit".equals(toolName) && 
             !"readNodesWithDescendants".equals(toolName)) {
             return false;
         }
         
-        // 检查预算约束是否紧张
+        // check if budget constraints are tight
         long timeBudget = getTimeBudget(parameters);
         long spaceBudget = getSpaceBudget(parameters);
         long product = timeBudget * spaceBudget;
@@ -58,11 +59,11 @@ public class KnapsackDPStrategy implements ToolExecutionStrategy {
         int timeBudget = (int) Math.min(getTimeBudget(parameters), 1000);
         int spaceBudget = (int) Math.min(getSpaceBudget(parameters), 1000);
         
-        // 二维背包DP
+        // 2D knapsack DP
         long[][] dp = new long[timeBudget + 1][spaceBudget + 1];
         Choice[][] choice = new Choice[timeBudget + 1][spaceBudget + 1];
         
-        // 初始化
+        // initialisation
         for (int t = 0; t <= timeBudget; t++) {
             for (int s = 0; s <= spaceBudget; s++) {
                 dp[t][s] = 0;
@@ -70,17 +71,17 @@ public class KnapsackDPStrategy implements ToolExecutionStrategy {
             }
         }
         
-        // 完全背包DP（可以重复选择同一工具）
+        // unbounded knapsack DP (the same tool may be chosen multiple times)
         for (KnapsackTool tool : tools) {
             int timeCost = tool.getTimeCost();
             int spaceCost = tool.getSpaceCost();
             
-            // 使用实际优先级作为价值分数（而不是简单的覆盖节点数）
-            // 优先级越高，价值越大，越容易被选中
+            // use actual priority as value weight (rather than raw node coverage count)
+            // higher priority = greater value = more likely to be selected
             int priorityWeight = ToolPerformanceProfile.getPriority(tool.getName());
-            int value = tool.getValue() * priorityWeight / 100;  // 归一化价值
+            int value = tool.getValue() * priorityWeight / 100;  // normalised value
             
-            // 完全背包：正向遍历
+            // unbounded knapsack: forward traversal
             for (int t = timeCost; t <= timeBudget; t++) {
                 for (int s = spaceCost; s <= spaceBudget; s++) {
                     long newValue = dp[t - timeCost][s - spaceCost] + value;
@@ -93,13 +94,13 @@ public class KnapsackDPStrategy implements ToolExecutionStrategy {
             }
         }
         
-        // 回溯找到最优组合
+        // backtrack to find optimal combination
         List<KnapsackTool> selectedTools = reconstructSolution(choice, timeBudget, spaceBudget);
         
         long elapsed = System.currentTimeMillis() - startTime;
         double totalCost = computeTotalCost(selectedTools);
         
-        // 构建优化结果
+        // Build optimised result
         List<OptimizedToolCall.ToolCallStep> steps = buildToolCallSteps(selectedTools, parameters);
         
         return new OptimizedToolCall(
@@ -121,7 +122,7 @@ public class KnapsackDPStrategy implements ToolExecutionStrategy {
     }
     
     /**
-     * 回溯构建最优解
+     * Reconstructs the optimal solution by backtracking through the choice table.
      */
     private List<KnapsackTool> reconstructSolution(Choice[][] choice, int timeBudget, int spaceBudget) {
         List<KnapsackTool> selected = new ArrayList<>();
@@ -141,7 +142,7 @@ public class KnapsackDPStrategy implements ToolExecutionStrategy {
     }
     
     /**
-     * 计算总成本
+     * Computes the total cost of the selected tools.
      */
     private double computeTotalCost(List<KnapsackTool> tools) {
         double totalCost = 0;
@@ -152,7 +153,7 @@ public class KnapsackDPStrategy implements ToolExecutionStrategy {
     }
     
     /**
-     * 构建工具调用步骤
+     * Builds the tool-call step list.
      */
     private List<OptimizedToolCall.ToolCallStep> buildToolCallSteps(
             List<KnapsackTool> tools, Map<String, Object> parameters) {
@@ -178,16 +179,16 @@ public class KnapsackDPStrategy implements ToolExecutionStrategy {
         return steps;
     }
     
-    // ========== 辅助方法 ==========
+    // ========== Helper methods ==========
     
     private long getTimeBudget(Map<String, Object> parameters) {
         Object budget = parameters.get("timeBudget");
-        return budget != null ? (Long) budget : 5000L; // 默认5秒
+        return budget != null ? (Long) budget : 5000L; // default 5 seconds
     }
     
     private long getSpaceBudget(Map<String, Object> parameters) {
         Object budget = parameters.get("spaceBudget");
-        return budget != null ? (Long) budget : 256L; // 默认256MB
+        return budget != null ? (Long) budget : 256L; // default 256 MB
     }
     
     @SuppressWarnings("unchecked")
@@ -199,11 +200,11 @@ public class KnapsackDPStrategy implements ToolExecutionStrategy {
     private List<KnapsackTool> createMockKnapsackTools() {
         List<KnapsackTool> tools = new ArrayList<>();
         
-        // 创建14个Mock工具
+        // create 14 mock tools
         for (int i = 0; i < 14; i++) {
             int timeCost = 10 + i * 5;
             int spaceCost = 5 + i * 2;
-            int value = 20 - i; // 工具0价值最高
+            int value = 20 - i; // tool 0 has the highest value
             
             tools.add(new KnapsackTool(
                 "tool_" + i,
@@ -216,9 +217,7 @@ public class KnapsackDPStrategy implements ToolExecutionStrategy {
         return tools;
     }
     
-    /**
-     * 背包工具
-     */
+    /** Knapsack tool item. */
     public static class KnapsackTool {
         private final String name;
         private final int timeCost;
@@ -238,9 +237,7 @@ public class KnapsackDPStrategy implements ToolExecutionStrategy {
         public int getValue() { return value; }
     }
     
-    /**
-     * 选择记录（用于回溯）
-     */
+    /** Choice record (used for backtracking). */
     private static class Choice {
         private final KnapsackTool tool;
         private final int prevTime;

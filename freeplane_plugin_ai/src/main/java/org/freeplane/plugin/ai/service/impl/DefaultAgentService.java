@@ -74,24 +74,24 @@ public class DefaultAgentService implements AIService {
                 return AIServiceResponse.error("Action is required");
             }
 
-            // 调度器已启用：将任务提交并通过 future 异步等待结果
+            // scheduler enabled: submit task and wait asynchronously via future
             if (schedulingConfig != null && schedulingConfig.isEnabled() && taskScheduler != null) {
                 BuildTask task = taskScheduler.submitTask(action, request);
-                // 队列已满时直接返回 CANCELLED 结果
+                // if queue is full, return CANCELLED result immediately
                 if (task.getStatus() == BuildTask.TaskStatus.CANCELLED) {
-                    return task.getFuture().getNow(AIServiceResponse.error("调度器队列已满"));
+                    return task.getFuture().getNow(AIServiceResponse.error("Scheduler queue is full"));
                 }
-                // 等待任务执行完成，最长等待 120 秒
+                // wait up to 120 seconds for the task to complete
                 return task.getFuture().get(120, TimeUnit.SECONDS);
             }
 
-            // 调度器未启用：直接执行
+            // scheduler disabled: execute directly
             return dispatchAction(action, request);
         } catch (java.util.concurrent.TimeoutException e) {
-            LogUtils.warn("DefaultAgentService.processRequest 等待任务超时", e);
+            LogUtils.warn("DefaultAgentService.processRequest task wait timed out", e);
             return AIServiceResponse.error("Agent action timed out after 120s");
         } catch (java.util.concurrent.ExecutionException e) {
-            LogUtils.warn("DefaultAgentService.processRequest 任务执行异常", e);
+            LogUtils.warn("DefaultAgentService.processRequest task execution exception", e);
             return AIServiceResponse.error("Agent action failed: " + e.getCause().getMessage());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -103,8 +103,9 @@ public class DefaultAgentService implements AIService {
     }
 
     /**
-     * 按 action 类型分发到具体 handler。
-     * public 以便跨包访问（BuildTaskExecutor 直接调用，避免再次进入调度路径防死锁）。
+     * Dispatches to the concrete handler based on the action type.
+     * Public to allow cross-package access (BuildTaskExecutor calls this directly
+     * to avoid re-entering the scheduling path and causing a deadlock).
      */
     public AIServiceResponse dispatchAction(String action, Map<String, Object> request) {
         switch (action) {
@@ -141,7 +142,7 @@ public class DefaultAgentService implements AIService {
             }
 
             String prompt = buildMindMapPrompt(topic, request);
-            // 使用简单的 System Prompt，完整的 Prompt 工程在 prompts.properties 模板中
+            // use a simple System Prompt; full prompt engineering is in the prompts.properties template
             String result = chatWithModel(
                 "You are a helpful assistant. Follow the instructions below carefully.",
                 prompt
@@ -329,21 +330,22 @@ public class DefaultAgentService implements AIService {
     }
 
     /**
-     * 供 BuildTaskExecutor 调用，确保 agent 已完成初始化。
-     * public 以便跨包访问（scheduling 包需要调用）。
+     * Called by BuildTaskExecutor to ensure the agent has been fully initialized.
+     * Public to allow cross-package access (required by the scheduling package).
      */
     public void ensureAgentInitializedPublic() {
         ensureAgentInitialized();
     }
 
     /**
-     * 分支摘要流式接口。
-     * 复用 buildSummarizePrompt 构建 prompt，然后经由 StreamingChatModel 邀 token 回调。
+     * Streaming interface for branch summarization.
+     * Reuses buildSummarizePrompt to construct the prompt, then delivers tokens
+     * via StreamingChatModel callbacks.
      *
-     * @param nodeId   节点 ID
-     * @param mapId    导图 ID（可为 null）
-     * @param maxWords 摘要最大字数（可为 null，默认 100）
-     * @param handler  SSE 回调处理器
+     * @param nodeId   node ID
+     * @param mapId    map ID (may be null)
+     * @param maxWords maximum summary word count (may be null, defaults to 100)
+     * @param handler  SSE callback handler
      */
     public void summarizeStream(String nodeId, String mapId, Integer maxWords,
                                 StreamingChatResponseHandler handler) {
@@ -403,16 +405,16 @@ public class DefaultAgentService implements AIService {
                             usage -> {}
                         );
 
-                        // 初始化底层 ChatModel（用于 generate/expand/summarize，绕开工具注册）
+                        // initialize the underlying ChatModel (for generate/expand/summarize, bypassing tool registration)
                         chatModel = AIChatModelFactory.createChatLanguageModel(configuration);
-                        // 初始化流式 ChatModel（用于 summarizeStream）
+                        // initialize the streaming ChatModel (for summarizeStream)
                         streamingChatModel = AIChatModelFactory.createStreamingChatModel(configuration);
 
-                        // 初始化工具执行服务
+                        // initialize the tool execution service
                         toolExecutionService = new DefaultToolExecutionService();
                         toolExecutionService.setToolSet(toolSet);
 
-                        // 初始化调度组件
+                        // initialize scheduling components
                         schedulingConfig = SchedulingConfig.getInstance();
                         schedulingMonitor = SchedulingMonitor.getInstance();
                         taskScheduler = BuildTaskScheduler.getInstance();
@@ -442,8 +444,10 @@ public class DefaultAgentService implements AIService {
     }
 
     /**
-     * 使用底层 ChatModel 直接发送请求，不带工具注册和控制指令 system message。
-     * 用于 generate/expand/summarize，避免 AIChatService 的复杂 system message 干扰输出。
+     * Sends a request directly via the underlying ChatModel without tool registration
+     * or control-instruction system messages.
+     * Used for generate/expand/summarize to avoid interference from AIChatService's
+     * complex system message.
      */
     private String chatWithModel(String systemPrompt, String userPrompt) {
         if (chatModel == null) {
@@ -460,9 +464,9 @@ public class DefaultAgentService implements AIService {
     }
 
     private String buildMindMapPrompt(String topic, Map<String, Object> request) {
-        // 使用 MindMapPromptOptimizer 从 prompts.yaml 加载 CoT 模板
-        org.freeplane.plugin.ai.buffer.BufferRequest bufferRequest = 
-            new org.freeplane.plugin.ai.buffer.BufferRequest("生成思维导图：" + topic);
+        // use MindMapPromptOptimizer to load CoT template from prompts.yaml
+        org.freeplane.plugin.ai.buffer.BufferRequest bufferRequest =
+            new org.freeplane.plugin.ai.buffer.BufferRequest("Generate mind map: " + topic);
         bufferRequest.setRequestType(org.freeplane.plugin.ai.buffer.BufferRequest.RequestType.MINDMAP_GENERATION);
         bufferRequest.addParameter("topic", topic);
         bufferRequest.addParameter("maxDepth", request.get("maxDepth") != null ? (Integer) request.get("maxDepth") : 3);
@@ -474,9 +478,9 @@ public class DefaultAgentService implements AIService {
     private String buildExpandNodePrompt(String nodeId, String mapId, Integer depth, Integer count, String focus) {
         if (depth == null) depth = 1;
         if (count == null) count = 3;
-        if (focus == null) focus = "相关内容";
+        if (focus == null) focus = "related content";
 
-        // Java 侧预读取节点真实文字及上下文
+        // pre-fetch the real node text and context on the Java side
         String nodeText = nodeId;
         String contextInfo = "";
         try {
@@ -488,10 +492,10 @@ public class DefaultAgentService implements AIService {
                         nodeText = node.getText();
                         NodeModel parent = node.getParentNode();
                         if (parent != null) {
-                            contextInfo += "\n父节点：" + parent.getText();
+                            contextInfo += "\nParent node: " + parent.getText();
                         }
                         if (node.getChildCount() > 0) {
-                            StringBuilder existingChildren = new StringBuilder("\n已有子节点：");
+                            StringBuilder existingChildren = new StringBuilder("\nExisting children:");
                             for (int i = 0; i < Math.min(node.getChildCount(), 5); i++) {
                                 existingChildren.append("\n- ").append(node.getChildAt(i).getText());
                             }
@@ -504,9 +508,9 @@ public class DefaultAgentService implements AIService {
             LogUtils.warn("DefaultAgentService: failed to read node text for " + nodeId, e);
         }
 
-        // 使用 MindMapPromptOptimizer 从 prompts.yaml 加载 CoT 模板
-        org.freeplane.plugin.ai.buffer.BufferRequest bufferRequest = 
-            new org.freeplane.plugin.ai.buffer.BufferRequest("展开节点：" + nodeText);
+        // use MindMapPromptOptimizer to load CoT template from prompts.yaml
+        org.freeplane.plugin.ai.buffer.BufferRequest bufferRequest =
+            new org.freeplane.plugin.ai.buffer.BufferRequest("Expand node: " + nodeText);
         bufferRequest.setRequestType(org.freeplane.plugin.ai.buffer.BufferRequest.RequestType.NODE_EXPANSION);
         bufferRequest.addParameter("nodeText", nodeText);
         bufferRequest.addParameter("contextInfo", contextInfo);
@@ -521,8 +525,8 @@ public class DefaultAgentService implements AIService {
     private String buildSummarizePrompt(String nodeId, String mapId, Integer maxWords, Boolean writeToNote) {
         if (maxWords == null) maxWords = 100;
 
-        // Java 侧预读取整棵子树文字
-        String branchContent = "（无法读取节点内容）";
+        // pre-fetch the full subtree text on the Java side
+        String branchContent = "(unable to read node content)";
         try {
             if (availableMaps != null) {
                 MapModel mapModel = availableMaps.getCurrentMapModel();
@@ -537,9 +541,9 @@ public class DefaultAgentService implements AIService {
             LogUtils.warn("DefaultAgentService: failed to read branch text for " + nodeId, e);
         }
 
-        // 使用 MindMapPromptOptimizer 从 prompts.yaml 加载 CoT 模板
-        org.freeplane.plugin.ai.buffer.BufferRequest bufferRequest = 
-            new org.freeplane.plugin.ai.buffer.BufferRequest("生成摘要：" + branchContent.substring(0, Math.min(50, branchContent.length())));
+        // use MindMapPromptOptimizer to load CoT template from prompts.yaml
+        org.freeplane.plugin.ai.buffer.BufferRequest bufferRequest =
+            new org.freeplane.plugin.ai.buffer.BufferRequest("Summarize: " + branchContent.substring(0, Math.min(50, branchContent.length())));
         bufferRequest.setRequestType(org.freeplane.plugin.ai.buffer.BufferRequest.RequestType.BRANCH_SUMMARY);
         bufferRequest.addParameter("content", branchContent);
         bufferRequest.addParameter("maxWords", maxWords);
@@ -572,25 +576,25 @@ public class DefaultAgentService implements AIService {
 
     private String buildTagPrompt(java.util.List<String> nodeIds, String mapId) {
         return String.format(
-            "你是一位专业的标签生成专家，擅长为思维导图节点生成简洁、有意义的标签。\n\n" +
-            "任务：请为以下节点生成合适的标签。\n\n" +
-            "节点列表：\n%s\n\n" +
-            "详细指令：\n" +
-            "1. 每个节点生成1-3个标签\n" +
-            "2. 标签应该简洁、有意义\n" +
-            "3. 标签应与节点内容相关\n\n" +
-            "重要提示：由于您无法直接访问思维导图节点，请按以下步骤操作：\n" +
-            "1. 首先使用 getSelectedMapAndNodeIdentifiers 或 readNodesWithDescendants 工具获取节点信息\n" +
-            "2. 然后使用 readNodesWithDescendants 工具读取每个节点的内容\n" +
-            "3. 基于内容生成标签\n" +
-            "4. 如需写入标签，请使用以下流程：\n" +
-            "   a) 对于TAGS/ICONS：可直接使用 edit 工具（无需 fetchNodesForEditing）\n" +
-            "   b) 对于TEXT/DETAILS/NOTE：必须先调用 fetchNodesForEditing 获取 originalContentType\n\n" +
-            "返回格式：\n" +
-            "请返回JSON格式，包含每个节点的ID和对应的标签列表：\n" +
+            "You are a professional tag generation expert, skilled at generating concise and meaningful tags for mind map nodes.\n\n" +
+            "Task: Generate appropriate tags for the following nodes.\n\n" +
+            "Node list:\n%s\n\n" +
+            "Detailed instructions:\n" +
+            "1. Generate 1-3 tags per node\n" +
+            "2. Tags should be concise and meaningful\n" +
+            "3. Tags should be relevant to the node content\n\n" +
+            "Important: Since you cannot access mind map nodes directly, follow these steps:\n" +
+            "1. First use getSelectedMapAndNodeIdentifiers or readNodesWithDescendants to retrieve node information\n" +
+            "2. Then use readNodesWithDescendants to read the content of each node\n" +
+            "3. Generate tags based on the content\n" +
+            "4. To write tags, use the following flow:\n" +
+            "   a) For TAGS/ICONS: use the edit tool directly (no fetchNodesForEditing needed)\n" +
+            "   b) For TEXT/DETAILS/NOTE: must call fetchNodesForEditing first to get originalContentType\n\n" +
+            "Return format:\n" +
+            "Return JSON with the ID and corresponding tag list for each node:\n" +
             "{\n" +
             "  \"tags\": [\n" +
-            "    {\"nodeId\": \"节点ID\", \"tags\": [\"标签1\", \"标签2\"]},\n" +
+            "    {\"nodeId\": \"<nodeId>\", \"tags\": [\"tag1\", \"tag2\"]},\n" +
             "    ...\n" +
             "  ]\n" +
             "}",

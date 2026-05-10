@@ -7,13 +7,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 调度监控器 - 用于跟踪任务执行指标和性能数据
+ * Scheduling monitor for tracking task execution metrics and performance data.
  */
 public class SchedulingMonitor {
-    // 单例实例
+    // singleton instance
     private static final SchedulingMonitor instance = new SchedulingMonitor();
     
-    // 任务指标
+    // task metrics
     private final Map<String, TaskMetrics> taskMetricsByAction;
     private final AtomicLong totalTasks;
     private final AtomicLong completedTasks;
@@ -21,13 +21,13 @@ public class SchedulingMonitor {
     private final AtomicLong totalWaitTime;
     private final AtomicLong totalExecutionTime;
     
-    // 资源利用率
+    // resource utilization
     private final AtomicLong peakConcurrentTasks;
-    // 使用 ArrayDeque 作为有界循环缓冲区，removeFirst() 为 O(1)，替代 ArrayList.remove(0) 的 O(n)
+    // Bounded ring buffer using ArrayDeque; removeFirst() is O(1) vs ArrayList.remove(0) O(n)
     private final ArrayDeque<ResourceUsageSnapshot> resourceSnapshots;
     private static final int MAX_RESOURCE_SNAPSHOTS = 100;
     
-    // 参数影响（每个 action 最多保留 50 条，同样用 ArrayDeque）
+    // parameter impacts (up to 50 entries per action, also using ArrayDeque)
     private final Map<String, ArrayDeque<ParameterImpact>> parameterImpacts;
     
     private SchedulingMonitor() {
@@ -111,7 +111,7 @@ public class SchedulingMonitor {
         synchronized (resourceSnapshots) {
             metrics.setRecentResourceSnapshots(new ArrayList<>(resourceSnapshots));
         }
-        // 快照 parameterImpacts 时对每个 deque 分别加锁
+        // snapshot parameterImpacts with per-deque locking
         Map<String, List<ParameterImpact>> impactsCopy = new HashMap<>();
         parameterImpacts.forEach((action, deque) -> {
             synchronized (deque) {
@@ -134,21 +134,21 @@ public class SchedulingMonitor {
             resourceSnapshots.clear();
         }
         parameterImpacts.clear();
-        LogUtils.info("SchedulingMonitor: 指标已重置");
+        LogUtils.info("SchedulingMonitor: metrics reset");
     }
     
     public void logMetrics() {
         SchedulingMetrics metrics = getMetrics();
         LogUtils.info("Scheduling Monitor Metrics:");
-        LogUtils.info("总任务数: " + metrics.getTotalTasks());
-        LogUtils.info("已完成任务: " + metrics.getCompletedTasks());
-        LogUtils.info("失败任务: " + metrics.getFailedTasks());
-        LogUtils.info("峰值并发任务数: " + metrics.getPeakConcurrentTasks());
+        LogUtils.info("Total tasks: " + metrics.getTotalTasks());
+        LogUtils.info("Completed tasks: " + metrics.getCompletedTasks());
+        LogUtils.info("Failed tasks: " + metrics.getFailedTasks());
+        LogUtils.info("Peak concurrent tasks: " + metrics.getPeakConcurrentTasks());
         if (metrics.getTotalTasks() > 0) {
-            LogUtils.info("平均等待时间: " + (metrics.getTotalWaitTime() / metrics.getTotalTasks()) + "ms");
-            LogUtils.info("平均执行时间: " + (metrics.getTotalExecutionTime() / metrics.getTotalTasks()) + "ms");
+            LogUtils.info("Avg wait time: " + (metrics.getTotalWaitTime() / metrics.getTotalTasks()) + "ms");
+            LogUtils.info("Avg execution time: " + (metrics.getTotalExecutionTime() / metrics.getTotalTasks()) + "ms");
         }
-        LogUtils.info("按操作类型的任务指标:");
+        LogUtils.info("Task metrics by action type:");
         metrics.getTaskMetricsByAction().forEach((action, taskMetrics) -> {
             LogUtils.info("  " + action + ": " + taskMetrics);
         });
@@ -163,7 +163,7 @@ public class SchedulingMonitor {
         private long peakConcurrentTasks;
         private Map<String, TaskMetrics> taskMetricsByAction;
         private List<ResourceUsageSnapshot> recentResourceSnapshots;
-        private Map<String, List<ParameterImpact>> parameterImpacts; // 快照时已转为 List，外部只读
+        private Map<String, List<ParameterImpact>> parameterImpacts; // read-only snapshot after copy
         
         public long getTotalTasks() { return totalTasks; }
         public void setTotalTasks(long totalTasks) { this.totalTasks = totalTasks; }

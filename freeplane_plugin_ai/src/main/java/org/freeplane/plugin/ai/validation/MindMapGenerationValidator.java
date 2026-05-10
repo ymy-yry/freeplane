@@ -10,24 +10,26 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
 /**
- * 思维导图生成验证器 —— 邻接表 + "蛇吞蛋" 内存优化架构
+ * Mind-map generation validator — adjacency-list + “SnakeDigest” memory-optimised architecture.
  *
- * <h3>核心设计</h3>
- * <p>解析阶段采用"蛇吞蛋"策略：Jackson 流式解析时只提取节点 id/text/childIds
- * 三类"蛋液"写入轻量邻接表 {@link SnakeDigestGraph}，JsonNode 对象（"蛋壳"）
- * 在离开作用域后即可被 GC 回收，全程不实例化 {@link MindMapNode} 对象。
+ * <h3>Core design</h3>
+ * <p>The parsing phase uses a “SnakeDigest” strategy: during Jackson streaming only the three
+ * essential fields (id/text/childIds) are extracted into the lightweight adjacency list
+ * {@link SnakeDigestGraph}; JsonNode objects leave scope immediately after parsing and
+ * become eligible for GC. No {@link MindMapNode} instances are created.
  *
- * <p>所有验证（环检测、唯一性、深度、子数、统计）均在邻接表字符串结构上完成，
- * 峰值内存仅为 O(节点ID总长度) 而非 O(节点对象数量)。
+ * <p>All checks (cycle detection, uniqueness, depth, child-count, statistics) are performed
+ * on the string-based adjacency list. Peak memory is O(total ID string length) rather than
+ * O(node object count).
  *
- * <h3>线程安全</h3>
- * <p>本类无可变状态，可多线程共用同一实例。
- * 异步执行需由调用方传入 {@link ExecutorService}，不持有静态线程池
- * （静态线程池在 OSGi 插件热重载时会泄漏线程）。
+ * <h3>Thread safety</h3>
+ * <p>This class has no mutable state and can be shared across threads.
+ * Asynchronous execution requires the caller to supply an {@link ExecutorService};
+ * no static thread pool is held (a static pool would leak threads on OSGi hot-reload).
  *
- * <h3>兼容旧接口</h3>
- * <p>保留 {@link #validate(String)} / {@link #validateAsync} 等原有公开接口，
- * 行为与旧实现完全一致。
+ * <h3>Backwards compatibility</h3>
+ * <p>The original public API ({@link #validate(String)}, {@link #validateAsync}, etc.) is
+ * preserved and behaves identically to the previous implementation.
  */
 public class MindMapGenerationValidator {
 
@@ -50,57 +52,57 @@ public class MindMapGenerationValidator {
     }
 
     // -------------------------------------------------------------------------
-    // 同步入口
+    // Synchronous entry points
     // -------------------------------------------------------------------------
 
     /**
-     * 验证思维导图 JSON 字符串。
+     * Validates a mind-map JSON string.
      *
-     * <p>内部流程：
+     * <p>Internal flow:
      * <ol>
-     *   <li>Jackson 解析 JSON 并构建轻量 {@link SnakeDigestGraph}（蛇吞蛋）</li>
-     *   <li>JsonNode 对象树在方法返回后可被 GC 回收（吐出蛋壳）</li>
-     *   <li>所有验证在 SnakeDigestGraph 邻接表上完成</li>
+     *   <li>Jackson parses the JSON and builds a lightweight {@link SnakeDigestGraph} (SnakeDigest).</li>
+     *   <li>The JsonNode tree can be GC’d once the method returns ("shed the shell").</li>
+     *   <li>All validation runs on the SnakeDigestGraph adjacency list.</li>
      * </ol>
      *
-     * @param jsonResponse LLM 生成的思维导图 JSON
-     * @return 验证结果
+     * @param jsonResponse the mind-map JSON produced by the LLM
+     * @return the validation result
      */
     public MindMapValidationResult validate(String jsonResponse) {
         MindMapValidationResult result = new MindMapValidationResult();
 
         if (jsonResponse == null || jsonResponse.trim().isEmpty()) {
-            result.addError("EMPTY_INPUT", "输入为空");
+            result.addError("EMPTY_INPUT", "Input is empty");
             return result;
         }
 
         try {
-            // ① "蛇吞蛋"：Jackson 解析 → 提取邻接表 → JsonNode 树可 GC
+            // ① SnakeDigest: Jackson parse → extract adjacency list → JsonNode tree eligible for GC
             SnakeDigestGraph graph = buildGraph(jsonResponse);
             if (graph.getRootId() == null) {
-                result.addError("NULL_ROOT", "解析后的根节点为空");
+                result.addError("NULL_ROOT", "Root node is null after parsing");
                 return result;
             }
-            // ② 所有验证均在邻接表上完成
+            // ② All validation performed on the adjacency list
             validateGraph(graph, result);
         } catch (Exception e) {
-            result.addError("PARSE_ERROR", "JSON 解析失败: " + e.getMessage());
-            LogUtils.warn("MindMapGenerationValidator: JSON 解析失败", e);
+            result.addError("PARSE_ERROR", "JSON parse failed: " + e.getMessage());
+            LogUtils.warn("MindMapGenerationValidator: JSON parse failed", e);
         }
 
         return result;
     }
 
     // -------------------------------------------------------------------------
-    // 异步入口（线程池由调用方传入，避免静态泄漏）
+    // Asynchronous entry points (executor supplied by caller to avoid static pool leak)
     // -------------------------------------------------------------------------
 
     /**
-     * 异步验证，不会阻塞 SSE 流式输出。
+     * Validates asynchronously without blocking SSE streaming output.
      *
-     * @param jsonResponse   LLM 生成的思维导图 JSON
-     * @param executorService 由调用方提供（推荐复用调度器线程池）
-     * @return 包含验证结果的 CompletableFuture
+     * @param jsonResponse    the mind-map JSON produced by the LLM
+     * @param executorService supplied by the caller (recommended: reuse the scheduler thread pool)
+     * @return a {@link CompletableFuture} containing the validation result
      */
     public CompletableFuture<MindMapValidationResult> validateAsync(
             String jsonResponse, ExecutorService executorService) {
@@ -108,11 +110,11 @@ public class MindMapGenerationValidator {
     }
 
     /**
-     * 异步验证并在完成后执行回调。
+     * Validates asynchronously and executes a callback on completion.
      *
-     * @param jsonResponse   LLM 生成的思维导图 JSON
-     * @param executorService 由调用方提供
-     * @param callback       验证完成后的回调函数
+     * @param jsonResponse    the mind-map JSON produced by the LLM
+     * @param executorService supplied by the caller
+     * @param callback        invoked when validation completes
      */
     public void validateAsync(String jsonResponse, ExecutorService executorService,
                               ValidationCallback callback) {
@@ -126,34 +128,34 @@ public class MindMapGenerationValidator {
     }
 
     // -------------------------------------------------------------------------
-    // ValidationSource 代理入口(新增)
+    // ValidationSource proxy entry point
     // -------------------------------------------------------------------------
 
     /**
-     * 通过 ValidationSource 代理接口验证思维导图。
+     * Validates a mind-map via the {@link ValidationSource} proxy interface.
      * 
-     * <p>设计要点:
+     * <p>Design notes:
      * <ul>
-     *   <li>检查 source.isReady(),未就绪返回 NOT_READY 错误</li>
-     *   <li>调用 source.readContent() 获取 JSON</li>
-     *   <li>日志带入 source.getDescription() 和 source.getSourceType()</li>
-     *   <li>委托现有 validate(String) 执行</li>
+     *   <li>Checks {@code source.isReady()}; returns a NOT_READY error if not ready.</li>
+     *   <li>Calls {@code source.readContent()} to obtain the JSON.</li>
+     *   <li>Logs with {@code source.getDescription()} and {@code source.getSourceType()}.</li>
+     *   <li>Delegates execution to the existing {@link #validate(String)}.</li>
      * </ul>
      * 
-     * @param source 验证数据源代理
-     * @return 验证结果
+     * @param source the validation data-source proxy
+     * @return the validation result
      */
     public MindMapValidationResult validate(ValidationSource source) {
         if (source == null) {
             MindMapValidationResult result = new MindMapValidationResult();
-            result.addError("NULL_SOURCE", "验证数据源为空");
+            result.addError("NULL_SOURCE", "Validation source is null");
             return result;
         }
         
         if (!source.isReady()) {
             MindMapValidationResult result = new MindMapValidationResult();
             result.addError("NOT_READY", 
-                "数据源未就绪: " + source.getDescription() + 
+                "Data source not ready: " + source.getDescription() + 
                 " [" + source.getSourceType() + "]");
             return result;
         }
@@ -163,23 +165,23 @@ public class MindMapGenerationValidator {
             LogUtils.info("MindMapGenerationValidator: validating source=" 
                 + source.getSourceType() + " / " + source.getDescription());
             
-            // 委托现有 validate(String) 执行
+            // Delegate to existing validate(String)
             return validate(content);
         } catch (Exception e) {
             MindMapValidationResult result = new MindMapValidationResult();
             result.addError("READ_ERROR", 
-                "读取数据源失败 [" + source.getSourceType() + "]: " + e.getMessage());
+                "Failed to read data source [" + source.getSourceType() + "]: " + e.getMessage());
             LogUtils.warn("MindMapGenerationValidator: failed to read source", e);
             return result;
         }
     }
 
     /**
-     * 异步验证(通过 ValidationSource 代理)。
+     * Validates asynchronously via the {@link ValidationSource} proxy.
      * 
-     * @param source   验证数据源代理
-     * @param executor 线程池(由调用方提供)
-     * @return 包含验证结果的 CompletableFuture
+     * @param source   the validation data-source proxy
+     * @param executor the thread pool (supplied by the caller)
+     * @return a {@link CompletableFuture} containing the validation result
      */
     public CompletableFuture<MindMapValidationResult> validateAsync(
             ValidationSource source, ExecutorService executor) {
@@ -192,95 +194,97 @@ public class MindMapGenerationValidator {
     }
 
     // -------------------------------------------------------------------------
-    // 解析阶段：Jackson 流式解析 → 直接输出 SnakeDigestGraph（"蛇吞蛋"核心）
+    // Parsing phase: Jackson streaming parse → build SnakeDigestGraph (core SnakeDigest logic)
     // -------------------------------------------------------------------------
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
-     * 将 JSON 字符串解析为轻量邻接表。
+     * Parses a JSON string into a lightweight adjacency list.
      *
-     * <p>“蛇吞蛋”原理：
+     * <p>SnakeDigest principle:
      * <ul>
-     *   <li>“吃入”：Jackson 解析得到 JsonNode 树</li>
-     *   <li>“挤出蛋液”：dfs 递归时只提取 id/text/childIds 写入 GraphData</li>
-     *   <li>“吱出蛋壳”：{@code buildGraph} 返回后 JsonNode 局部引用消失，GC 可回收整棵对象树</li>
+     *   <li>"Swallow": Jackson parses the input into a JsonNode tree.</li>
+     *   <li>"Extract nutrients": the DFS only writes id/text/childIds into the graph.</li>
+     *   <li>"Shed the shell": once {@code buildGraph} returns, local JsonNode references
+     *       are gone and the GC can reclaim the entire object tree.</li>
      * </ul>
      */
     private SnakeDigestGraph buildGraph(String json) {
         String trimmed = json.trim();
         if (trimmed.startsWith("[")) {
-            throw new IllegalArgumentException("根节点不能是数组，必须是 JSON 对象");
+            throw new IllegalArgumentException("Root node must not be an array; expected a JSON object");
         }
         try {
-            // 吴“吃入”：Jackson 解析得到 JsonNode 树（此时内存占用达到峰値）
+            // “Swallow”: Jackson parse → JsonNode tree (peak memory is reached here)
             JsonNode rootNode = OBJECT_MAPPER.readTree(trimmed);
             if (!rootNode.isObject()) {
-                throw new IllegalArgumentException("根节点必须是 JSON 对象");
+                throw new IllegalArgumentException("Root node must be a JSON object");
             }
             SnakeDigestGraph graph = new SnakeDigestGraph();
-            // "挠蛋液/吓蛋壳"：dfs 递归提取邻接表，JsonNode 逐步可 GC
-            // 吴“挤蛋液）吱蛋壳”：dfs 递归提取邻接表，JsonNode 逐步可 GC
+            // "Extract nutrients / shed shell": DFS extracts adjacency list; JsonNode becomes GC-eligible progressively
             traverseToGraph(rootNode, null, graph);
-            // rootNode 局部引用在此处就要离开作用域 → GC 可回收整棵 JsonNode 树
+            // rootNode local reference leaves scope here → GC can reclaim the entire JsonNode tree
             return graph;
         } catch (Exception e) {
-            throw new RuntimeException("JSON 解析失败: " + e.getMessage(), e);
+            throw new RuntimeException("JSON parse failed: " + e.getMessage(), e);
         }
     }
 
     /**
-     * DFS 递归提取邻接表。
-     * 每个 JsonNode 在提取完 id/text/children 后不再被引用，最终只有当前递归格上的节点存活。
+     * DFS — recursively extracts the adjacency list.
+     * Each JsonNode is no longer referenced once its id/text/children have been extracted;
+     * only nodes on the current call stack remain alive at any point.
      */
     private void traverseToGraph(JsonNode node, String parentId, SnakeDigestGraph graph) {
-        // ① 提取“蛋液”：id 和 text
+        // ① Extract "nutrients": id and text
         JsonNode idNode = node.get("id");
         String id = (idNode != null && !idNode.isNull()) ? idNode.asText() : generateNodeId();
 
         JsonNode textNode = node.get("text");
         String text = (textNode != null && !textNode.isNull()) ? textNode.asText() : "";
 
-        // ② 写入邻接表（"流入胃部"）
+        // ② Write into adjacency list ("enter the stomach")
         graph.registerNode(id, text);
         graph.setRootId(id);
         if (parentId != null) graph.addEdge(parentId, id);
 
-        // ③ 递归子节点（“继续吴入”）
+        // ③ Recurse into children ("continue ingesting")
         JsonNode childrenNode = node.get("children");
         if (childrenNode != null && childrenNode.isArray()) {
             for (JsonNode child : childrenNode) {
                 if (child.isObject()) {
                     traverseToGraph(child, id, graph);
-                    // child 局部引用在循环下一轮即失效 → GC 可回收（“吱蛋壳”）
+                    // child local reference expires on next loop iteration → GC-eligible ("shed shell")
                 }
             }
         }
-        // node 局部引用在此帧退栈后就可 GC
+        // node local reference expires when this stack frame pops → GC-eligible
     }
 
     // -------------------------------------------------------------------------
-    // 验证阶段：所有检查均在 SnakeDigestGraph 上完成
+    // Validation phase: all checks performed on SnakeDigestGraph
     // -------------------------------------------------------------------------
 
     private void validateGraph(SnakeDigestGraph graph, MindMapValidationResult result) {
-        // 1. 根节点有效性
+        // 1. Root validity
         validateRoot(graph, result);
 
-        // 2. ID 唯一性（邻接表 key 本身就是唯一的；但需检测同一节点被多个父节点引用的情况）
+        // 2. ID uniqueness (adjacency-list keys are inherently unique; but the same childId
+        //    could appear in multiple parent child-lists)
         checkDuplicateIds(graph, result);
 
-        // 3. 环检测 + 深度 + 子数 + 自引用 + 统计：一次 DFS 全部完成
+        // 3. Cycle detection + depth + child-count + self-reference + statistics: one DFS pass
         GraphStats stats = new GraphStats();
         detectCyclesAndCollectStats(graph, stats, result);
 
         if (stats.maxDepth > maxDepth) {
             result.addError("EXCEEDS_MAX_DEPTH",
-                "思维导图深度超过限制: " + stats.maxDepth + " > " + maxDepth);
+                "Mind-map depth exceeds limit: " + stats.maxDepth + " > " + maxDepth);
         }
         if (stats.totalNodes > maxTotalNodes) {
             result.addError("EXCEEDS_MAX_TOTAL_NODES",
-                "思维导图节点总数超过限制: " + stats.totalNodes + " > " + maxTotalNodes);
+                "Mind-map node count exceeds limit: " + stats.totalNodes + " > " + maxTotalNodes);
         }
 
         MindMapValidationResult.MindMapStatistics s = new MindMapValidationResult.MindMapStatistics();
@@ -296,50 +300,51 @@ public class MindMapGenerationValidator {
     }
 
     // -------------------------------------------------------------------------
-    // 1. 根节点有效性
+    // 1. Root validity
     // -------------------------------------------------------------------------
 
     private void validateRoot(SnakeDigestGraph graph, MindMapValidationResult result) {
         String rootId = graph.getRootId();
         String text = graph.getLabel(rootId != null ? rootId : "");
-        boolean hasId = rootId != null && !rootId.startsWith("node_"); // 自动生成的 ID 不算“有效 ID”
+        boolean hasId = rootId != null && !rootId.startsWith("node_"); // auto-generated IDs do not count as valid
         boolean hasText = text != null && !text.trim().isEmpty();
         if (!hasId && !hasText) {
-            result.addError("INVALID_ROOT", "根节点缺少有效的 ID 和文本");
+            result.addError("INVALID_ROOT", "Root node has neither a valid ID nor text");
         }
     }
 
     // -------------------------------------------------------------------------
-    // 2. ID 唯一性
+    // 2. ID uniqueness
     // -------------------------------------------------------------------------
 
     /**
-     * 检测同一 childId 是否被多个父节点引用（邻接表 key 不重复，
-     * 但同一 childId 可能出现在多个父节点的 children 列表中）。
+     * Detects whether the same childId is referenced by more than one parent
+     * (adjacency-list keys are unique, but the same childId may appear in multiple
+     * parents’ child lists).
      */
     private void checkDuplicateIds(SnakeDigestGraph graph, MindMapValidationResult result) {
         Set<String> allChildIds = new HashSet<>();
         for (Map.Entry<String, List<String>> entry : graph.adjacencyEntries()) {
             for (String childId : entry.getValue()) {
                 if (!allChildIds.add(childId)) {
-                    result.addError("DUPLICATE_ID", "发现重复的节点 ID: " + childId, childId);
+                    result.addError("DUPLICATE_ID", "Duplicate node ID found: " + childId, childId);
                 }
             }
         }
     }
 
     // -------------------------------------------------------------------------
-    // 3. DFS 环检测 + 统计：三色标记 + parent Map 一次遍历完成全部工作
+    // 3. DFS cycle detection + statistics: three-colour marking + parent map in one traversal
     //
-    // 三色语义：
-    //   WHITE(0) — 未访问
-    //   GRAY (1) — 正在递归栈中（回边 = 发现环）
-    //   BLACK(2) — 已完成，确认无环
+    // Colour semantics:
+    //   WHITE(0) — not yet visited
+    //   GRAY (1) — currently on the recursion stack (back edge = cycle detected)
+    //   BLACK(2) — fully processed, confirmed acyclic
     //
-    // 优化点：
-    //   • 两个 HashSet（visited + recursionStack）合并为一个 HashMap，查找从 2次 → 1次
-    //   • 回溯由 LinkedHashSet.remove() → HashMap.put(BLACK)，消除链表维护开销
-    //   • cyclePath ArrayList 替换为 parent Map 按需回溯重建，避免每步入栈/出栈操作
+    // Optimisations:
+    //   • Two HashSets (visited + recursionStack) merged into one HashMap: lookups 2 → 1
+    //   • Back-tracking via LinkedHashSet.remove() → HashMap.put(BLACK): eliminates list overhead
+    //   • cyclePath ArrayList → parent Map reconstructed on demand, avoids per-step push/pop
     // -------------------------------------------------------------------------
 
     private static final int WHITE = 0;
@@ -356,7 +361,7 @@ public class MindMapGenerationValidator {
 
     private void detectCyclesAndCollectStats(SnakeDigestGraph graph, GraphStats stats,
                                              MindMapValidationResult result) {
-        // color/parent 由 SnakeDigestGraph 按节点数预分配，避免 DFS 中途 rehash
+        // color/parent pre-allocated by SnakeDigestGraph to current node count, avoiding mid-DFS rehash
         Map<String, Integer> color = graph.newColorMap();
         Map<String, String> parent = graph.newParentMap();
         statsDFS(graph.getRootId(), graph, color, parent, 1, stats, result);
@@ -368,19 +373,19 @@ public class MindMapGenerationValidator {
                           MindMapValidationResult result) {
         if (nodeId == null) return;
 
-        // 一次查找同时判断 GRAY / BLACK（原来需要两次 HashSet.contains）
+        // Single lookup determines GRAY / BLACK simultaneously (previously required two HashSet.contains calls)
         int state = color.getOrDefault(nodeId, WHITE);
 
         if (state == GRAY) {
-            // 发现回边：从 parent Map 回溯重建环路径
+            // Back-edge detected: reconstruct cycle path via parent map
             result.addError("CIRCULAR_DEPENDENCY",
-                "检测到循环依赖: " + buildCyclePath(nodeId, parent),
+                "Cycle detected: " + buildCyclePath(nodeId, parent),
                 nodeId);
             return;
         }
-        if (state == BLACK) return; // 已完成，剪枝
+        if (state == BLACK) return; // already fully processed, prune
 
-        // ① 进入：WHITE → GRAY
+        // ① Enter: WHITE → GRAY
         color.put(nodeId, GRAY);
         stats.totalNodes++;
         stats.maxDepth = Math.max(stats.maxDepth, depth);
@@ -396,46 +401,46 @@ public class MindMapGenerationValidator {
 
             if (childCount > maxChildren) {
                 result.addError("EXCEEDS_MAX_CHILDREN",
-                    "节点子节点数量超过限制: " + childCount + " > " + maxChildren, nodeId);
+                    "Node exceeds max child-count: " + childCount + " > " + maxChildren, nodeId);
             }
 
             for (String childId : children) {
                 if (childId.equals(nodeId)) {
-                    result.addError("SELF_REFERENCE", "节点引用自身作为子节点", nodeId);
+                    result.addError("SELF_REFERENCE", "Node references itself as a child", nodeId);
                     continue;
                 }
-                // 记录父节点，供环路径回溯
+                // record parent for cycle-path reconstruction
                 parent.put(childId, nodeId);
                 statsDFS(childId, graph, color, parent, depth + 1, stats, result);
             }
         }
 
-        // ② 完成：GRAY → BLACK（"吐出蛋壳"，简单 put 替代 LinkedHashSet.remove）
+        // ② Done: GRAY → BLACK (simple put replaces LinkedHashSet.remove)
         color.put(nodeId, BLACK);
     }
 
     /**
-     * 从 parent Map 回溯重建环路径字符串。
-     * 从回边目标节点（cycleEntry）沿 parent 链向上回溯，直到再次遇到 cycleEntry，
-     * 收集路径后反转输出 "A → B → C → A"。
+     * Reconstructs the cycle path string from the parent map.
+     * Walks the parent chain from {@code cycleEntry} upward until {@code cycleEntry} is
+     * encountered again, then reverses and returns "A → B → C → A".
      */
     private String buildCyclePath(String cycleEntry, Map<String, String> parent) {
         List<String> path = new ArrayList<>();
         path.add(cycleEntry);
         String cur = parent.get(cycleEntry);
-        // 沿父链回溯，最多回溯 parent.size() 步防止意外死循环
+        // Walk the parent chain; cap at parent.size()+1 steps to guard against unexpected infinite loops
         int limit = parent.size() + 1;
         while (cur != null && !cur.equals(cycleEntry) && limit-- > 0) {
             path.add(cur);
             cur = parent.get(cur);
         }
-        path.add(cycleEntry); // 闭合环
+        path.add(cycleEntry); // close the cycle
         Collections.reverse(path);
         return String.join(" → ", path);
     }
 
     // -------------------------------------------------------------------------
-    // 工具方法
+    // Utilities
     // -------------------------------------------------------------------------
 
     private String generateNodeId() {

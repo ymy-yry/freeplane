@@ -4,9 +4,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 优化工具调用方案
+ * Optimised tool-call plan.
  * 
- * <p>封装策略优化后的工具调用序列和元数据。
+ * <p>Encapsulates the tool-call sequence and metadata produced by strategy optimisation.
  * 
  * @author AI Plugin Team
  * @since 1.13.x
@@ -56,9 +56,7 @@ public class OptimizedToolCall {
                '}';
     }
     
-    /**
-     * 工具调用步骤
-     */
+    /** Tool-call step. */
     public static class ToolCallStep {
         private final String toolName;
         private final Map<String, Object> parameters;

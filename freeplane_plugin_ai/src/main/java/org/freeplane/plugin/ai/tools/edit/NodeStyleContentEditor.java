@@ -19,15 +19,6 @@ public class NodeStyleContentEditor {
     }
 
     public void editMainStyle(NodeModel nodeModel, EditOperation operation, String styleName) {
-        processMainStyle(nodeModel, operation, styleName, false);
-    }
-
-    public void validateMainStyle(NodeModel nodeModel, EditOperation operation, String styleName) {
-        processMainStyle(nodeModel, operation, styleName, true);
-    }
-
-    private void processMainStyle(NodeModel nodeModel, EditOperation operation, String styleName,
-                                  boolean dryRun) {
         if (nodeModel == null) {
             throw new IllegalArgumentException("Missing node model.");
         }
@@ -39,16 +30,10 @@ public class NodeStyleContentEditor {
                 if (styleName == null || styleName.trim().isEmpty()) {
                     throw new IllegalArgumentException("Missing style name.");
                 }
-                if (dryRun) {
-                    StyleNameMappingHelper.findStyleByNameOrThrow(nodeModel.getMap(), styleName);
-                } else {
-                    setMainStyle(nodeModel, styleName);
-                }
+                setMainStyle(nodeModel, styleName);
                 return;
             case DELETE:
-                if (!dryRun) {
-                    clearMainStyle(nodeModel);
-                }
+                clearMainStyle(nodeModel);
                 return;
             default:
                 throw new IllegalArgumentException("Unsupported style edit operation: " + operation);

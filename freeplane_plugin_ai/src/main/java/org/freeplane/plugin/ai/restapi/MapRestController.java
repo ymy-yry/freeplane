@@ -32,9 +32,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 导图数据接口控制器。
- * 负责处理 /api/map/* 路径下的所有请求。
- * 主要将 Freeplane 内存中的 MapModel/NodeModel 对象序列化为 JSON 返回给前端。
+ * REST controller for mindmap data endpoints under /api/map/* and /api/maps/*.
+ * Serializes Freeplane in-memory MapModel/NodeModel objects to JSON for the frontend.
  */
 public class MapRestController {
 
@@ -48,7 +47,7 @@ public class MapRestController {
 
     /**
      * GET /api/map/current
-     * 返回当前 Freeplane 中打开的导图节点树（JSON 格式）。
+     * Returns the node tree of the currently open mindmap in JSON format.
      */
     public void handleCurrentMap(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -78,7 +77,7 @@ public class MapRestController {
 
     /**
      * GET /api/maps
-     * 返回所有已打开的导图列表（不含节点树，仅元数据）。
+     * Returns all open mindmaps as a list (metadata only, no node tree).
      */
     public void handleGetAllMaps(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -113,8 +112,8 @@ public class MapRestController {
 
     /**
      * POST /api/maps/create
-     * 创建新导图（空导图，带默认根节点）。
-     * 请求体可选：{ "title": "New Map" }
+     * Creates a new empty mindmap with a default root node.
+     * Optional request body: { "title": "New Map" }
      */
     public void handleCreateMap(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -136,7 +135,7 @@ public class MapRestController {
             MapController mapController = modeController.getMapController();
             MapModel newMap = mapController.newMap();
 
-            // 解析请求体获取自定义标题（可选）
+            // parse optional title from request body
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             if (body != null && !body.isEmpty()) {
                 try {
@@ -170,8 +169,8 @@ public class MapRestController {
 
     /**
      * POST /api/maps/switch
-     * 切换到指定导图。
-     * 请求体：{ "mapId": "uuid-string" }
+     * Switches focus to the specified mindmap.
+     * Request body: { "mapId": "uuid-string" }
      */
     public void handleSwitchMap(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -229,8 +228,8 @@ public class MapRestController {
 
     /**
      * POST /api/maps/import
-     * 从前端传入的 .mm XML 内容字符串导入思维导图并切换到该导图。
-     * 请求体：{ "content": "<map>...", "filename": "example.mm" }
+     * Imports a mindmap from a .mm XML string and switches to it.
+     * Request body: { "content": "<map>...", "filename": "example.mm" }
      */
     public void handleImportMap(HttpExchange exchange) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -262,7 +261,7 @@ public class MapRestController {
             MModeController mmodeController = (MModeController) modeController;
             MMapController mapController = (MMapController) mmodeController.getMapController();
 
-            // 步骤0:前置环检测拦截(避免解析无效XML)
+            // Step 0: pre-validate for circular dependencies before parsing XML
             MindMapGenerationValidator validator = new MindMapGenerationValidator();
             ValidationSource source = new FileValidationSource(content, filename);
             MindMapValidationResult preValidation = validator.validate(source);
@@ -270,15 +269,15 @@ public class MapRestController {
             if (preValidation.getErrors().stream()
                 .anyMatch(e -> "CIRCULAR_DEPENDENCY".equals(e.getCode()))) {
                 LogUtils.warn("MapRestController: import rejected due to circular dependency in " + filename);
-                sendError(exchange, 400, 
-                    "导入失败: 检测到循环依赖 - " + 
+                sendError(exchange, 400,
+                    "Import failed: circular dependency detected - " +
                     preValidation.getErrors().stream()
                         .filter(e -> "CIRCULAR_DEPENDENCY".equals(e.getCode()))
-                        .findFirst().map(e -> e.getMessage()).orElse("未知环"));
+                        .findFirst().map(e -> e.getMessage()).orElse("unknown cycle"));
                 return;
             }
 
-            // 步骤1：在当前线程解析 XML（createNodeTreeFromXml 内部 synchronized，线程安全）
+            // Step 1: parse XML on current thread (createNodeTreeFromXml is internally synchronized)
             byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
             ByteArrayInputStream inputStream = new ByteArrayInputStream(contentBytes);
             final MMapModel[] mapHolder = {null};
@@ -308,7 +307,7 @@ public class MapRestController {
 
             final MMapModel newMap = mapHolder[0];
 
-            // 步骤2：在 EDT 上执行 UI 注册（fireMapCreated / addLoadedMap / createMapView 需在 EDT）
+            // Step 2: register map on EDT (fireMapCreated / addLoadedMap / createMapView require EDT)
             try {
                 SwingUtilities.invokeAndWait(() -> {
                     try {
@@ -329,7 +328,7 @@ public class MapRestController {
                 return;
             }
 
-            // 设置标题：优先使用根节点文本，备选扩展名作为 fallback
+            // set title: prefer root node text, fall back to filename without extension
             NodeModel rootNode = newMap.getRootNode();
             String title = (rootNode != null && !rootNode.getText().isEmpty())
                 ? rootNode.getText()
@@ -337,7 +336,7 @@ public class MapRestController {
 
             UUID mapId = availableMaps.getOrCreateMapIdentifier(newMap);
 
-            // 步骤3：切换视图到新导入的导图
+            // Step 3: switch view to the newly imported map
             IMapViewManager mapViewManager = controller.getMapViewManager();
             if (mapViewManager != null) {
                 SwingUtilities.invokeLater(() -> mapViewManager.changeToMap(newMap));
@@ -358,7 +357,7 @@ public class MapRestController {
 
     /**
      * GET /api/maps/{mapId}
-     * 返回指定导图的完整节点树。
+     * Returns the full node tree of the specified mindmap.
      */
     public void handleGetMapById(HttpExchange exchange, String mapId) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -395,7 +394,7 @@ public class MapRestController {
 
     /**
      * GET /api/nodes/{nodeId}
-     * 返回单个节点的详细信息（含属性、备注、子节点列表）。
+     * Returns detail information for a single node (attributes, notes, child list).
      */
     public void handleGetNode(HttpExchange exchange, String nodeId) throws IOException {
         CorsFilter.addCorsHeaders(exchange);
@@ -422,8 +421,8 @@ public class MapRestController {
     }
 
     /**
-     * 将节点递归序列化为 Map（用于 JSON 输出），包含完整子节点树。
-     * 字段与前端 types/mindmap.ts 中 MindMapNode 接口完全对应。
+     * Recursively serializes a node to a Map for JSON output, including the full child subtree.
+     * Fields correspond exactly to the MindMapNode interface in the frontend types/mindmap.ts.
      */
     private Map<String, Object> serializeNode(NodeModel node) {
         Map<String, Object> map = new LinkedHashMap<>();
@@ -431,7 +430,7 @@ public class MapRestController {
         map.put("text", node.getText());
         map.put("parentId", node.getParentNode() != null ? node.getParentNode().getID() : null);
         map.put("folded", node.isFolded());
-        map.put("note", ""); // Note 字段需要 NoteModel 扩展，此处简化
+        map.put("note", ""); // note field requires NoteModel extension; simplified here
 
         List<Map<String, Object>> children = new ArrayList<>();
         for (NodeModel child : node.getChildren()) {
@@ -442,17 +441,17 @@ public class MapRestController {
     }
 
     /**
-     * 序列化节点详情（含属性键值对）。
+     * Serializes node detail including attribute key-value pairs.
      */
     private Map<String, Object> serializeNodeDetail(NodeModel node) {
         Map<String, Object> map = serializeNode(node);
-        // 属性字段（attributes）暂返回空数组，后续可扩展读取 NodeAttributeTableModel
+        // attributes: returning empty array for now; extend to read NodeAttributeTableModel as needed
         map.put("attributes", new ArrayList<>());
         return map;
     }
 
     // ──────────────────────────────────────────────
-    // 通用工具方法
+    // helpers
     // ──────────────────────────────────────────────
 
     void sendJson(HttpExchange exchange, int statusCode, Object body) throws IOException {

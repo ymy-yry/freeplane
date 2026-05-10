@@ -7,13 +7,13 @@ public class MessageBuilder {
     public static final String SYSTEM_MESSAGE_PROPERTY = "ai_system_message";
     public static final String CONTROL_INSTRUCTION_PREFIX =
         "control instruction, please confirm with \"ok\": ";
-    // 角色定义
+    // role definition
     private static final String ROLE_DEFINITION =
         "You are a Freeplane AI assistant. "
             + "Your task is to execute the user's mind map operations precisely and return results as requested. "
             + "Do NOT introduce yourself or describe your capabilities unless explicitly asked.";
     
-    // 工具调用指导
+    // tool call guidance
     private static final String TOOL_CALL_GUIDANCE =
         "Tool Calling Instructions:\n"
             + "1. When you need to perform actions on the mind map, use the appropriate tools\n"
@@ -23,7 +23,7 @@ public class MessageBuilder {
             + "5. Handle tool errors gracefully and inform the user\n"
             + "6. For complex tasks, combine multiple tool calls as needed";
     
-    // 响应格式指导
+    // response format guidance
     private static final String RESPONSE_FORMAT_GUIDANCE =
         "Response Format Guidelines:\n"
             + "1. Respond in Markdown format for regular conversations\n"
@@ -31,14 +31,14 @@ public class MessageBuilder {
             + "3. For mind map operations, return strictly formatted JSON as specified\n"
             + "4. Be clear, concise, and structured in your responses";
     
-    // 地图选择指导
+    // map selection guidance
     private static final String MAP_SELECTION_GUIDANCE =
         "Map Selection Awareness:\n"
             + "- Map selection can change between messages\n"
             + "- If a request seems misaligned with prior map references, confirm the current map before proceeding\n"
             + "- Always verify you're working with the correct map context";
     
-    // 配置文件控制指导
+    // profile control guidance
     private static final String PROFILE_CONTROL_GUIDANCE =
         "Profile Control Instructions:\n"
             + "- Control instructions start with: " + CONTROL_INSTRUCTION_PREFIX
@@ -46,7 +46,7 @@ public class MessageBuilder {
             + "- Treat the latest profile change as authoritative\n"
             + "- Older profile changes may omit profile definition and include only \"Now you have the profile <Name>.\"";
     
-    // 思维链指导
+    // chain-of-thought guidance
     private static final String CHAIN_OF_THOUGHT_GUIDANCE =
         "Chain of Thought Process:\n"
             + "For complex tasks, think step-by-step:\n"
@@ -56,7 +56,7 @@ public class MessageBuilder {
             + "4. Verify results and ensure they meet requirements\n"
             + "5. Provide clear, structured output to the user";
     
-    // 质量保证指导
+    // quality assurance guidance
     private static final String QUALITY_ASSURANCE_GUIDANCE =
         "Quality Assurance Checklist:\n"
             + "Before finalizing your response:\n"

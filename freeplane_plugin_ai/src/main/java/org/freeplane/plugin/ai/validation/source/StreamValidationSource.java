@@ -3,9 +3,10 @@ package org.freeplane.plugin.ai.validation.source;
 import java.io.IOException;
 
 /**
- * Build 流式聚合数据源 —— 逐块接收 SSE chunk,标记完成后统一验证。
- * 
- * <p>关键设计:流结束时触发验证,而不是每收到一块就触发。
+ * Streaming aggregation data source for build pipelines.
+ * Accepts SSE chunks incrementally and triggers validation once the stream is marked complete.
+ *
+ * <p>Key design: validation is triggered at stream end, not on every chunk.
  */
 public final class StreamValidationSource implements ValidationSource {
     
@@ -14,16 +15,16 @@ public final class StreamValidationSource implements ValidationSource {
     private volatile boolean completed = false;
     
     /**
-     * @param description 流描述,如 "build-stream" 或节点ID
+     * @param description stream description, e.g. "build-stream" or a node ID
      */
     public StreamValidationSource(String description) {
         this.description = description;
     }
     
     /**
-     * 追加流式分块。
-     * 
-     * @param chunk SSE chunk 内容
+     * Appends a streaming chunk.
+     *
+     * @param chunk SSE chunk content
      */
     public synchronized void append(String chunk) {
         if (completed) {
@@ -33,7 +34,7 @@ public final class StreamValidationSource implements ValidationSource {
     }
     
     /**
-     * 标记流聚合完成。
+     * Marks the stream as fully assembled.
      */
     public synchronized void markComplete() {
         this.completed = true;

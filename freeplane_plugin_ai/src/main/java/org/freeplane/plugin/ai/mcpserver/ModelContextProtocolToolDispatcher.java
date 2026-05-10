@@ -31,7 +31,7 @@ public class ModelContextProtocolToolDispatcher {
     }
 
     /**
-     * 完整构造函数，支持注入观察者。
+     * Full constructor with observer injection support.
      */
     public ModelContextProtocolToolDispatcher(Object toolSet, ObjectMapper objectMapper,
                                               List<ToolExecutionObserver> observers) {
@@ -70,7 +70,7 @@ public class ModelContextProtocolToolDispatcher {
             .build();
         long start = System.currentTimeMillis();
 
-        // MCP 路径：在执行前广播 before 事件
+        // MCP path: broadcast a 'before' event prior to execution.
         ToolExecutionBeforeEvent beforeEvent = ToolExecutionBeforeEvent.create(
             toolName, arguments, ToolCaller.MCP);
         for (ToolExecutionObserver observer : observers) {
@@ -82,14 +82,14 @@ public class ModelContextProtocolToolDispatcher {
             if (result != null && result.isError()) {
                 LogUtils.info(buildToolCallLog(toolName, arguments, result.resultText()));
             }
-            // MCP 路径：执行成功后广播 after 事件
+            // MCP path: broadcast an 'after' event on success.
             ToolExecutionAfterEvent afterEvent = ToolExecutionAfterEvent.create(
                 toolName, arguments, ToolCaller.MCP, start,
                 result == null ? null : result.resultText());
             notifyObserversSafely(o -> o.onAfter(afterEvent));
             return result;
         } catch (RuntimeException error) {
-            // MCP 路径：执行失败后广播 error 事件
+            // MCP path: broadcast an 'error' event on failure.
             ToolExecutionErrorEvent errorEvent = ToolExecutionErrorEvent.create(
                 toolName, arguments, ToolCaller.MCP, start, error);
             notifyObserversSafely(o -> o.onError(errorEvent));
@@ -102,7 +102,7 @@ public class ModelContextProtocolToolDispatcher {
             try {
                 action.accept(observer);
             } catch (Exception ignored) {
-                // 观察者内部异常不应破坏 MCP 分发链路
+                // Observer exceptions must not disrupt the MCP dispatch chain.
             }
         }
     }

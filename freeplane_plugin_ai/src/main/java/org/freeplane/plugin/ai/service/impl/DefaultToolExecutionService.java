@@ -25,14 +25,14 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 工具执行服务实现
- * 提供直接的工具调用能力，绕过 LLM 聊天环节
- * 
- * <p>架构演进：
+ * Tool execution service implementation.
+ * Provides direct tool invocation capability, bypassing the LLM chat stage.
+ *
+ * <p>Architecture evolution:
  * <ul>
- *   <li>原架构：硬编码 Map 映射工具执行器</li>
- *   <li>新架构：策略者模式 + 动态规划算法优化</li>
- *   <li>向后兼容：保留原有执行器，新增策略调度层</li>
+ *   <li>Original: hard-coded Map of tool executors</li>
+ *   <li>New: Strategy pattern + dynamic programming algorithm optimization</li>
+ *   <li>Backward compatible: original executors retained; strategy dispatch layer added</li>
  * </ul>
  */
 public class DefaultToolExecutionService implements ToolExecutionService {
@@ -40,7 +40,7 @@ public class DefaultToolExecutionService implements ToolExecutionService {
     private AIToolSet toolSet;
     private final Map<String, ToolExecutor> toolExecutors;
     private final ToolStrategyDispatcher strategyDispatcher;
-    private boolean strategyEnabled = true; // 默认启用策略优化
+    private boolean strategyEnabled = true; // strategy optimization enabled by default
 
     public DefaultToolExecutionService() {
         this.toolExecutors = new HashMap<>();
@@ -50,20 +50,20 @@ public class DefaultToolExecutionService implements ToolExecutionService {
     }
 
     /**
-     * 初始化策略调度器
-     * 注册所有优化策略（按优先级自动排序）
+     * Initializes the strategy dispatcher and registers all optimization strategies
+     * (sorted automatically by priority).
      */
     private void initializeStrategies() {
-        // 优先级 5：贪心+局部搜索（核心优化）
+        // priority 5: greedy + local search (core optimization)
         strategyDispatcher.registerStrategy(new GreedyLocalSearchStrategy());
-        
-        // 优先级 10：区间动态规划（兄弟节点批量处理）
+
+        // priority 10: interval DP (batch processing of sibling nodes)
         strategyDispatcher.registerStrategy(new IntervalDPStrategy());
-        
-        // 优先级 15：并查集+LCA（消除重复调用）
+
+        // priority 15: union-find + LCA (eliminate duplicate calls)
         strategyDispatcher.registerStrategy(new UnionFindLCAStrategy());
-        
-        // 优先级 20：完全背包DP（资源约束优化）
+
+        // priority 20: unbounded knapsack DP (resource-constrained optimization)
         strategyDispatcher.registerStrategy(new KnapsackDPStrategy());
         
         LogUtils.info("DefaultToolExecutionService: Initialized " + 
@@ -71,13 +71,13 @@ public class DefaultToolExecutionService implements ToolExecutionService {
     }
 
     private void initializeToolExecutors() {
-        // 注册工具执行器
+        // register tool executors
         toolExecutors.put("readNodesWithDescendants", this::executeReadNodesWithDescendants);
         toolExecutors.put("fetchNodesForEditing", this::executeFetchNodesForEditing);
         toolExecutors.put("getSelectedMapAndNodeIdentifiers", this::executeGetSelectedMapAndNodeIdentifiers);
         toolExecutors.put("createNodes", this::executeCreateNodes);
         toolExecutors.put("edit", this::executeEdit);
-        // 可以添加更多工具执行器
+        // additional tool executors can be registered here
     }
 
     @Override
@@ -90,34 +90,35 @@ public class DefaultToolExecutionService implements ToolExecutionService {
             throw new IllegalStateException("AIToolSet not initialized");
         }
 
-        // 策略优化路径（优先尝试）
+        // strategy optimization path (try first)
         if (strategyEnabled) {
             try {
                 LogUtils.info("ToolExecutionService: Attempting strategy optimization for tool " + toolName);
                 Object optimizedResult = strategyDispatcher.dispatch(toolName, parameters);
-                
-                // 如果策略返回优化方案，记录日志
+
+                // if the strategy returns an optimized plan, log it
                 if (optimizedResult instanceof OptimizedToolCall) {
                     OptimizedToolCall optimized = (OptimizedToolCall) optimizedResult;
-                    LogUtils.info("ToolExecutionService: Strategy optimization applied: " + 
-                                  optimized.getStrategyName() + ", steps=" + optimized.getStepCount() + 
+                    LogUtils.info("ToolExecutionService: Strategy optimization applied: " +
+                                  optimized.getStrategyName() + ", steps=" + optimized.getStepCount() +
                                   ", time=" + optimized.getOptimizationTimeMs() + "ms");
-                    
-                    // 注意：这里返回的是优化方案，实际工具执行仍需要调用原始执行器
-                    // 后续可以扩展为直接执行优化后的工具调用序列
+
+                    // Note: the return value here is the optimized plan; actual tool execution
+                    // still needs to call the original executor.
+                    // Future: extend to directly execute the optimized tool call sequence.
                 }
-                
+
                 return optimizedResult;
             } catch (UnsupportedOperationException e) {
-                // 没有匹配的策略，降级到原始执行器
+                // no matching strategy - fall back to original executor
                 LogUtils.info("ToolExecutionService: No matching strategy, falling back to original executor");
             } catch (Exception e) {
-                // 策略执行失败，降级到原始执行器
+                // strategy execution failed - fall back to original executor
                 LogUtils.warn("ToolExecutionService: Strategy optimization failed, falling back to original executor", e);
             }
         }
 
-        // 原始执行器路径（向后兼容）
+        // original executor path (backward compatible)
         ToolExecutor executor = toolExecutors.get(toolName);
         try {
             LogUtils.info("ToolExecutionService: Executing tool " + toolName + " (original executor)");
@@ -151,9 +152,9 @@ public class DefaultToolExecutionService implements ToolExecutionService {
     }
 
     /**
-     * 启用或禁用策略优化
-     * 
-     * @param enabled true 启用策略优化，false 使用原始执行器
+     * Enables or disables strategy optimization.
+     *
+     * @param enabled true to enable strategy optimization, false to use the original executor
      */
     public void setStrategyEnabled(boolean enabled) {
         this.strategyEnabled = enabled;
@@ -161,30 +162,30 @@ public class DefaultToolExecutionService implements ToolExecutionService {
     }
 
     /**
-     * 检查策略优化是否启用
-     * 
-     * @return true 如果策略优化已启用
+     * Returns whether strategy optimization is enabled.
+     *
+     * @return true if strategy optimization is enabled
      */
     public boolean isStrategyEnabled() {
         return strategyEnabled;
     }
 
     /**
-     * 获取策略调度器（用于监控和管理）
-     * 
-     * @return 策略调度器实例
+     * Returns the strategy dispatcher (for monitoring and management).
+     *
+     * @return strategy dispatcher instance
      */
     public ToolStrategyDispatcher getStrategyDispatcher() {
         return strategyDispatcher;
     }
 
-    // 工具执行器接口
+    // tool executor interface
     @FunctionalInterface
     private interface ToolExecutor {
         Object execute(Map<String, Object> parameters) throws Exception;
     }
 
-    // 工具执行实现
+    // tool execution implementations
     private Object executeReadNodesWithDescendants(Map<String, Object> parameters) {
         String mapIdentifier = (String) parameters.get("mapIdentifier");
         List<String> nodeIdentifiers = (List<String>) parameters.get("nodeIdentifiers");
@@ -193,7 +194,7 @@ public class DefaultToolExecutionService implements ToolExecutionService {
         Integer summaryDepth = (Integer) parameters.get("summaryDepth");
         Integer maximumTotalTextCharacters = (Integer) parameters.get("maximumTotalTextCharacters");
         
-        // 转换 contextSections 为枚举类型
+        // convert contextSections to enum type
         List<org.freeplane.plugin.ai.tools.read.ContextSection> contextSections = null;
         if (contextSectionsStr != null) {
             contextSections = contextSectionsStr.stream()
@@ -217,7 +218,7 @@ public class DefaultToolExecutionService implements ToolExecutionService {
         List<String> nodeIdentifiers = (List<String>) parameters.get("nodeIdentifiers");
         List<String> editableContentFields = (List<String>) parameters.get("editableContentFields");
         
-        // 转换 editableContentFields 为枚举类型
+        // convert editableContentFields to enum type
         List<org.freeplane.plugin.ai.tools.content.EditableContentField> fields = editableContentFields.stream()
                 .map(field -> org.freeplane.plugin.ai.tools.content.EditableContentField.valueOf(field))
                 .collect(Collectors.toList());
@@ -240,7 +241,7 @@ public class DefaultToolExecutionService implements ToolExecutionService {
         String mapIdentifier = (String) parameters.get("mapIdentifier");
         String userSummary = (String) parameters.get("userSummary");
         
-        // 解析 anchorPlacement
+        // parse anchorPlacement
         Map<String, Object> anchorPlacementMap = (Map<String, Object>) parameters.get("anchorPlacement");
         String anchorNodeIdentifier = (String) anchorPlacementMap.get("anchorNodeIdentifier");
         String placementMode = (String) anchorPlacementMap.get("placementMode");
@@ -249,13 +250,13 @@ public class DefaultToolExecutionService implements ToolExecutionService {
                 org.freeplane.plugin.ai.tools.create.AnchorPlacementMode.valueOf(placementMode)
         );
         
-        // 解析 nodes
+        // parse nodes
         List<Map<String, Object>> nodesMap = (List<Map<String, Object>>) parameters.get("nodes");
         List<NodeCreationItem> nodes = new ArrayList<>();
         for (int i = 0; i < nodesMap.size(); i++) {
             Map<String, Object> nodeMap = nodesMap.get(i);
             
-            // 解析 content
+            // parse content
             Map<String, Object> contentMap = (Map<String, Object>) nodeMap.get("content");
             NodeContentWriteRequest content = null;
             if (contentMap != null) {
@@ -295,7 +296,7 @@ public class DefaultToolExecutionService implements ToolExecutionService {
         String mapIdentifier = (String) parameters.get("mapIdentifier");
         String userSummary = (String) parameters.get("userSummary");
         
-        // 解析 items
+        // parse items
         List<Map<String, Object>> itemsMap = (List<Map<String, Object>>) parameters.get("items");
         List<NodeContentEditItem> items = new ArrayList<>();
         for (Map<String, Object> itemMap : itemsMap) {

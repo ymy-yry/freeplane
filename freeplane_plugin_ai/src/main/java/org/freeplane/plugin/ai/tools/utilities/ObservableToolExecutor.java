@@ -9,10 +9,11 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * 可观察的工具执行装饰器（观察者模式实现）。
+ * Observable decorator for tool execution (Observer pattern implementation).
  *
- * <p>在委托执行器前后广播事件给所有观察者，观察者中的异常被静默吞掉
- * 以避免影响工具执行链路（{@code onBefore} 抛出的异常除外）。
+ * <p>Broadcasts lifecycle events to all registered observers before and after delegating
+ * to the wrapped executor. Exceptions thrown by observers are silently swallowed to avoid
+ * disrupting the execution chain, except for exceptions from {@code onBefore}.
  */
 public class ObservableToolExecutor implements ToolExecutor {
     private final ToolExecutor delegate;
@@ -42,7 +43,7 @@ public class ObservableToolExecutor implements ToolExecutor {
 
     @Override
     public ToolExecutionResult executeWithContext(ToolExecutionRequest request, InvocationContext invocationContext) {
-        // Before：执行前通知（可中断）
+        // Before: notify observers before execution (may abort by throwing)
         ToolExecutionBeforeEvent beforeEvent = ToolExecutionBeforeEvent.create(
             toolName, request.arguments(), toolCaller);
         for (ToolExecutionObserver observer : observers) {
@@ -52,14 +53,14 @@ public class ObservableToolExecutor implements ToolExecutor {
         long start = System.currentTimeMillis();
         try {
             ToolExecutionResult result = delegate.executeWithContext(request, invocationContext);
-            // After：执行成功通知
+            // After: notify observers on success
             ToolExecutionAfterEvent afterEvent = ToolExecutionAfterEvent.create(
                 toolName, request.arguments(), toolCaller, start,
                 result == null ? null : result.resultText());
             notifyObserversSafely(o -> o.onAfter(afterEvent));
             return result;
         } catch (RuntimeException error) {
-            // Error：执行失败通知
+            // Error: notify observers on failure
             ToolExecutionErrorEvent errorEvent = ToolExecutionErrorEvent.create(
                 toolName, request.arguments(), toolCaller, start, error);
             notifyObserversSafely(o -> o.onError(errorEvent));
@@ -67,13 +68,13 @@ public class ObservableToolExecutor implements ToolExecutor {
         }
     }
 
-    /** 安全通知观察者：单个观察者的异常不影响其他观察者和主流程。 */
+    /** Notifies observers safely: an exception in one observer does not affect others or the main flow. */
     private void notifyObserversSafely(java.util.function.Consumer<ToolExecutionObserver> action) {
         for (ToolExecutionObserver observer : observers) {
             try {
                 action.accept(observer);
             } catch (Exception ignored) {
-                // 观察者内部异常不应破坏工具执行链路
+                // exceptions in observers must not disrupt the tool execution chain
             }
         }
     }

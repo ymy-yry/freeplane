@@ -1,9 +1,9 @@
 package org.freeplane.plugin.ai.tools.utilities;
 
 /**
- * 工具执行前事件。
+ * Event fired before a tool is executed.
  *
- * <p>观察者可在 {@code onBefore} 中对参数进行预校验、权限检查或日志打点。
+ * <p>Observers may use {@code onBefore} for argument pre-validation, permission checks, or audit logging.
  */
 public record ToolExecutionBeforeEvent(
         String toolName,

@@ -39,13 +39,13 @@ public class AIProviderConfiguration {
         if (selectedModelValue != null && !selectedModelValue.trim().isEmpty()) {
             return selectedModelValue;
         }
-        // 如果用户未配置选中模型，返回 provider+model 的旧式字段 fallback
+        // If the user has not configured a selected model, fall back to the legacy provider+model fields.
         String providerName = resourceController.getProperty(AI_PROVIDER_NAME_PROPERTY);
         String modelName = resourceController.getProperty(AI_MODEL_NAME_PROPERTY);
         if (providerName != null && !providerName.isEmpty() && modelName != null && !modelName.isEmpty()) {
             return AIModelSelection.createSelectionValue(providerName, modelName);
         }
-        // 最后 fallback：自动根据已配置的 provider 推断默认模型
+        // Final fallback: infer a default model from whichever provider is configured.
         return inferDefaultModelSelection();
     }
 

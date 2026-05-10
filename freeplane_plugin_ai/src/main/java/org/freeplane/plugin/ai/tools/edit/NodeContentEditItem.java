@@ -1,7 +1,5 @@
 package org.freeplane.plugin.ai.tools.edit;
 
-import java.util.List;
-
 import org.freeplane.plugin.ai.tools.content.ContentType;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -12,9 +10,8 @@ import dev.langchain4j.model.output.structured.Description;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class NodeContentEditItem {
-    @Description("Target node IDs to edit (non-empty).")
-    private final List<String> nodeIdentifiers;
-    @Description("Edited element: TEXT, DETAILS, NOTE, ATTRIBUTES, TAGS, ICONS, STYLE, or HYPERLINK.")
+    @Description("Node ID to edit.")
+    private final String nodeIdentifier;
     private final EditedElement editedElement;
     @JsonProperty(value = "originalContentType", required = false)
     @Description("From fetchNodesForEditing. Required for TEXT/DETAILS/NOTE; ignored for other elements.")
@@ -33,16 +30,14 @@ public class NodeContentEditItem {
     private final String targetKey;
 
     @JsonCreator
-    public NodeContentEditItem(@JsonProperty(value = "nodeIdentifiers", required = true)
-                               List<String> nodeIdentifiers,
-                               @JsonProperty(value = "editedElement", required = true)
-                               EditedElement editedElement,
+    public NodeContentEditItem(@JsonProperty("nodeIdentifier") String nodeIdentifier,
+                               @JsonProperty("editedElement") EditedElement editedElement,
                                @JsonProperty(value = "originalContentType", required = false) ContentType originalContentType,
                                @JsonProperty("value") String value,
                                @JsonProperty("index") Integer index,
                                @JsonProperty("operation") EditOperation operation,
                                @JsonProperty("targetKey") String targetKey) {
-        this.nodeIdentifiers = nodeIdentifiers;
+        this.nodeIdentifier = nodeIdentifier;
         this.editedElement = editedElement;
         this.originalContentType = originalContentType;
         this.value = value;
@@ -51,12 +46,12 @@ public class NodeContentEditItem {
         this.targetKey = targetKey;
     }
 
-    public List<String> getNodeIdentifiers() {
-        return nodeIdentifiers;
-    }
-
     public EditedElement getEditedElement() {
         return editedElement;
+    }
+
+    public String getNodeIdentifier() {
+        return nodeIdentifier;
     }
 
     public ContentType getOriginalContentType() {

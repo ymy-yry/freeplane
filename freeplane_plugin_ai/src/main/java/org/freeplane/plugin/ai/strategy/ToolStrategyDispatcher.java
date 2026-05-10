@@ -10,20 +10,20 @@ import java.util.Objects;
 import org.freeplane.core.util.LogUtils;
 
 /**
- * 工具策略调度器
- * 
- * <p>根据工具名称和参数特征，按优先级遍历所有已注册策略，
- * 选择第一个支持该请求的策略执行。
- * 
- * <p>使用示例：
+ * Tool execution strategy dispatcher.
+ *
+ * <p>Iterates all registered strategies in priority order and delegates to
+ * the first one that supports the given tool name and parameters.
+ *
+ * <p>Usage:
  * <pre>{@code
  * ToolStrategyDispatcher dispatcher = new ToolStrategyDispatcher();
  * dispatcher.registerStrategy(new GreedyLocalSearchStrategy());
  * dispatcher.registerStrategy(new IntervalDPStrategy());
- * 
+ *
  * Object result = dispatcher.dispatch("createNodes", parameters);
  * }</pre>
- * 
+ *
  * @author AI Plugin Team
  * @since 1.13.x
  */
@@ -32,24 +32,24 @@ public class ToolStrategyDispatcher {
     private final List<ToolExecutionStrategy> strategies = new ArrayList<>();
     
     /**
-     * 注册策略
-     * 
-     * @param strategy 要注册的策略
+     * Registers a strategy. Strategies are kept sorted by priority (lower value = higher priority).
+     *
+     * @param strategy the strategy to register
      */
     public void registerStrategy(ToolExecutionStrategy strategy) {
         Objects.requireNonNull(strategy, "strategy");
         strategies.add(strategy);
-        // 按优先级排序（数值越小优先级越高）
+        // sort by priority (lower number = higher priority)
         Collections.sort(strategies, Comparator.comparingInt(ToolExecutionStrategy::getPriority));
         LogUtils.info("Registered strategy: " + strategy.getStrategyName() + 
                       " (priority=" + strategy.getPriority() + ")");
     }
     
     /**
-     * 注销策略
-     * 
-     * @param strategyName 策略名称
-     * @return true 如果成功注销
+     * Unregisters a strategy by name.
+     *
+     * @param strategyName the strategy name
+     * @return {@code true} if the strategy was found and removed
      */
     public boolean unregisterStrategy(String strategyName) {
         boolean removed = strategies.removeIf(s -> s.getStrategyName().equals(strategyName));
@@ -60,12 +60,12 @@ public class ToolStrategyDispatcher {
     }
     
     /**
-     * 分派工具调用请求到合适的策略
-     * 
-     * @param toolName 工具名称
-     * @param parameters 工具参数
-     * @return 策略执行结果
-     * @throws UnsupportedOperationException 如果没有策略支持该请求
+     * Dispatches a tool-call request to the appropriate strategy.
+     *
+     * @param toolName   the tool name
+     * @param parameters the tool parameters
+     * @return the strategy execution result
+     * @throws UnsupportedOperationException if no registered strategy supports the request
      */
     public Object dispatch(String toolName, Map<String, Object> parameters) {
         for (ToolExecutionStrategy strategy : strategies) {
@@ -82,18 +82,18 @@ public class ToolStrategyDispatcher {
     }
     
     /**
-     * 获取所有已注册的策略（只读）
-     * 
-     * @return 策略列表
+     * Returns an unmodifiable view of all registered strategies.
+     *
+     * @return the strategy list
      */
     public List<ToolExecutionStrategy> getStrategies() {
         return Collections.unmodifiableList(strategies);
     }
     
     /**
-     * 获取策略数量
-     * 
-     * @return 策略数量
+     * Returns the number of registered strategies.
+     *
+     * @return the strategy count
      */
     public int getStrategyCount() {
         return strategies.size();

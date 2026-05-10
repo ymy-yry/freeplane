@@ -26,8 +26,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 思维导图完整缓冲层。
- * 整合需求分析、提示词优化、模型选择、结果优化等组件。
+ * Full mindmap buffer layer.
+ * Integrates requirement analysis, prompt optimisation, model selection, and result optimisation.
  */
 public class MindMapBufferLayer implements IBufferLayer {
 
@@ -59,13 +59,9 @@ public class MindMapBufferLayer implements IBufferLayer {
 
         String input = request.getUserInput().toLowerCase();
 
-        // 检查是否包含思维导图相关关键词
-        boolean hasMindMapKeyword = input.contains("思维导图") ||
-                                   input.contains("mindmap") ||
+        // Check for mindmap-related keywords.
+        boolean hasMindMapKeyword = input.contains("mindmap") ||
                                    input.contains("mind map") ||
-                                   input.contains("脑图") ||
-                                   input.contains("生成") ||
-                                   input.contains("创建") ||
                                    input.contains("generate") ||
                                    input.contains("create");
 
@@ -74,7 +70,7 @@ public class MindMapBufferLayer implements IBufferLayer {
 
     @Override
     public int getPriority() {
-        return 10; // 高优先级
+        return 10; // high priority
     }
 
     @Override
@@ -83,58 +79,58 @@ public class MindMapBufferLayer implements IBufferLayer {
         BufferResponse response = new BufferResponse();
 
         try {
-            // 步骤 1：需求分析
+            // Step 1: Requirement analysis.
             LogUtils.info("MindMapBufferLayer: step 1 - requirement analysis");
             requirementAnalyzer.analyze(request);
-            response.addLog("需求识别: " + request.getRequestType());
+            response.addLog("Request type identified: " + request.getRequestType());
 
-            // 步骤 2：提示词优化
+            // Step 2: Prompt optimisation.
             LogUtils.info("MindMapBufferLayer: step 2 - prompt optimization");
             String optimizedPrompt = promptOptimizer.optimizePrompt(request);
-            response.addLog("提示词优化: " + optimizedPrompt.length() + " 字符");
+            response.addLog("Prompt optimised: " + optimizedPrompt.length() + " chars");
 
-            // 步骤 3：模型选择
+            // Step 3: Model selection.
             LogUtils.info("MindMapBufferLayer: step 3 - model selection");
             String selectedModel = modelRouter.selectBestModel(request);
             if (selectedModel == null) {
                 response.setSuccess(false);
-                response.setErrorMessage("没有可用的 AI 模型，请检查 API Key 配置");
+                response.setErrorMessage("No AI model available. Please check your API key configuration.");
                 response.setProcessingTime(System.currentTimeMillis() - startTime);
                 return response;
             }
             response.setUsedModel(selectedModel);
-            response.addLog("模型选择: " + selectedModel);
+            response.addLog("Model selected: " + selectedModel);
 
-            // 步骤 4：调用 AI（这里需要集成现有的 AI 调用逻辑）
+            // Step 4: Call AI.
             LogUtils.info("MindMapBufferLayer: step 4 - calling AI");
             String aiResponse = callAI(optimizedPrompt, selectedModel, request);
 
-            // 步骤 4.5：结构验证（环检测降级处理）
-            // CIRCULAR_DEPENDENCY → 直接降级为 sampleJSON，不继续使用有环数据
-            // 其他结构性错误（超深度、超子节点数）→ 记录警告，继续流程（数据仍可渲染）
+            // Step 4.5: Structural validation (with cycle-detection degradation).
+            // CIRCULAR_DEPENDENCY -> must degrade to sampleJSON; cyclic data cannot be written to the mindmap.
+            // Other structural errors (exceeded depth/children) -> log a warning and continue.
             LogUtils.info("MindMapBufferLayer: step 4.5 - structural validation");
             aiResponse = validateAndHandleDegradation(aiResponse, request, response);
 
-            // 步骤 5：结果优化
+            // Step 5: Result optimisation.
             LogUtils.info("MindMapBufferLayer: step 5 - result optimization");
             Map<String, Object> optimizedData = resultOptimizer.optimizeResult(aiResponse, response);
 
             if (optimizedData == null) {
                 response.setSuccess(false);
-                response.setErrorMessage("AI 返回结果格式无效");
+                response.setErrorMessage("Invalid format returned by AI.");
                 response.setProcessingTime(System.currentTimeMillis() - startTime);
                 return response;
             }
 
-            // 步骤 6：创建思维导图节点
+            // Step 6: Create mindmap nodes.
             LogUtils.info("MindMapBufferLayer: step 6 - creating mindmap nodes");
             int nodeCount = createMindMapNodes(optimizedData);
             response.putData("nodeCount", nodeCount);
 
-            // 设置成功响应
+            // Mark success.
             response.setSuccess(true);
             response.setData(optimizedData);
-            response.addLog("节点创建: " + nodeCount + " 个");
+            response.addLog("Nodes created: " + nodeCount);
             response.setProcessingTime(System.currentTimeMillis() - startTime);
 
             LogUtils.info("MindMapBufferLayer: processing completed successfully in " +
@@ -143,7 +139,7 @@ public class MindMapBufferLayer implements IBufferLayer {
         } catch (Exception e) {
             LogUtils.warn("MindMapBufferLayer: processing failed", e);
             response.setSuccess(false);
-            response.setErrorMessage("处理失败: " + e.getMessage());
+            response.setErrorMessage("Processing failed: " + e.getMessage());
             response.setProcessingTime(System.currentTimeMillis() - startTime);
         }
 
@@ -151,19 +147,19 @@ public class MindMapBufferLayer implements IBufferLayer {
     }
 
     /**
-     * 验证 AI 返回的 JSON 并根据验证结果进行降级处理。
+     * Validates the AI-returned JSON and applies degradation based on the result.
      *
      * <ul>
-     *   <li>CIRCULAR_DEPENDENCY：有环数据不可渲染，必须降级 → 返回 sampleJSON，这是可用的安全内容</li>
-     *   <li>EXCEEDS_MAX_DEPTH / EXCEEDS_MAX_CHILDREN：超限但结构合法，降级为警告，继续流程</li>
-     *   <li>PARSE_ERROR：解析失败，降级 → 返回 sampleJSON</li>
+     *   <li>CIRCULAR_DEPENDENCY: cyclic data cannot be rendered; must degrade to sampleJSON.</li>
+     *   <li>EXCEEDS_MAX_DEPTH / EXCEEDS_MAX_CHILDREN: structure is still legal; log a warning and continue.</li>
+     *   <li>PARSE_ERROR: parsing failed; degrade to sampleJSON.</li>
      * </ul>
      *
-     * @return 原始 aiResponse 或降级内容
+     * @return the original aiResponse or the degraded fallback content
      */
     private String validateAndHandleDegradation(String aiResponse, BufferRequest request,
                                                 BufferResponse response) {
-        // 使用 ValidationSource 代理,日志包含模型信息
+        // Use ValidationSource proxy so that logs include model info.
         ValidationSource source = new PromptValidationSource(
             aiResponse, 
             request.getParameter("selectedModel", null)
@@ -171,7 +167,7 @@ public class MindMapBufferLayer implements IBufferLayer {
         MindMapValidationResult validationResult = validator.validate(source);
 
         if (validationResult.isValid()) {
-            // 验证通过（或仅有警告）
+            // Validation passed (possibly with warnings).
             if (validationResult.hasWarnings()) {
                 validationResult.getWarnings().forEach(w ->
                     response.addLog("[VALIDATION WARNING] " + w.getCode() + ": " + w.getMessage()));
@@ -183,25 +179,25 @@ public class MindMapBufferLayer implements IBufferLayer {
             return aiResponse;
         }
 
-        // 有错误：分类处理
+        // Errors found: classify and handle.
         boolean hasCycle = validationResult.getErrors().stream()
             .anyMatch(e -> "CIRCULAR_DEPENDENCY".equals(e.getCode()));
         boolean hasParseError = validationResult.getErrors().stream()
             .anyMatch(e -> "PARSE_ERROR".equals(e.getCode()));
 
         if (hasCycle || hasParseError) {
-            // 环结构 / 解析失败 → 必须降级，有环数据不能写入思维导图
+            // Cyclic structure / parse failure -> must degrade; cyclic data cannot be written to the mindmap.
             String reason = hasCycle ? "CIRCULAR_DEPENDENCY" : "PARSE_ERROR";
             String errorMsg = validationResult.getErrors().stream()
                 .filter(e -> reason.equals(e.getCode()))
                 .findFirst().map(e -> e.getMessage()).orElse(reason);
             LogUtils.warn("MindMapBufferLayer: validation failed [" + reason
                 + "], degrading to sample JSON. reason=" + errorMsg);
-            response.addLog("[VALIDATION DEGRADED] " + reason + ": 降级为示例思维导图");
-            return createSampleMindMapJSON(request.getParameter("topic", "主题"));
+            response.addLog("[VALIDATION DEGRADED] " + reason + ": falling back to sample mindmap");
+            return createSampleMindMapJSON(request.getParameter("topic", "Topic"));
         }
 
-        // 其他结构性错误（超深度、超子节点数等）→ 记录警告，继续使用原始数据
+        // Other structural errors (exceeded depth, exceeded child count, etc.) -> log and continue.
         validationResult.getErrors().forEach(e ->
             response.addLog("[VALIDATION WARNING] " + e.getCode() + ": " + e.getMessage()));
         LogUtils.warn("MindMapBufferLayer: validation has " + validationResult.getErrors().size()
@@ -210,12 +206,13 @@ public class MindMapBufferLayer implements IBufferLayer {
     }
 
     /**
-     * 懒初始化的底层 ChatModel（双重检查锁），绕开 AIChatService 的复杂 system message。
+     * Lazily-initialised underlying ChatModel (double-checked locking),
+     * bypassing the complex system message of AIChatService.
      */
     private volatile ChatModel chatModel;
 
     /**
-     * 懒初始化 ChatModel
+     * Lazily initialises the ChatModel.
      */
     private void ensureChatModelInitialized() {
         if (chatModel == null) {
@@ -234,14 +231,15 @@ public class MindMapBufferLayer implements IBufferLayer {
     }
 
     /**
-     * 调用真实 AI 模型（使用底层 ChatModel，避免 AIChatService 的 system message 干扰）
+     * Calls the real AI model (uses the low-level ChatModel directly,
+     * avoiding interference from AIChatService's system message).
      */
     private String callAI(String prompt, String selectedModel, BufferRequest request) {
         LogUtils.info("MindMapBufferLayer: calling AI model " + selectedModel);
         ensureChatModelInitialized();
         if (chatModel == null) {
             LogUtils.warn("MindMapBufferLayer: ChatModel unavailable, using sample JSON");
-            return createSampleMindMapJSON(request.getParameter("topic", "主题"));
+            return createSampleMindMapJSON(request.getParameter("topic", "Topic"));
         }
         try {
             ChatRequest chatRequest = ChatRequest.builder()
@@ -254,21 +252,21 @@ public class MindMapBufferLayer implements IBufferLayer {
             return chatResponse.aiMessage().text();
         } catch (Exception e) {
             LogUtils.warn("MindMapBufferLayer: AI call failed", e);
-            return createSampleMindMapJSON(request.getParameter("topic", "主题"));
+            return createSampleMindMapJSON(request.getParameter("topic", "Topic"));
         }
     }
 
     /**
-     * 兜底示例 JSON（AI 不可用时使用）
+     * Fallback sample JSON used when AI is unavailable.
      */
     private String createSampleMindMapJSON(String topic) {
         return String.format(
             "{" +
             "  \"text\": \"%s\"," +
             "  \"children\": [" +
-            "    {\"text\": \"分支 1\", \"children\": [{\"text\": \"子分支 1.1\"}, {\"text\": \"子分支 1.2\"}]}," +
-            "    {\"text\": \"分支 2\", \"children\": [{\"text\": \"子分支 2.1\"}]}," +
-            "    {\"text\": \"分支 3\"}" +
+            "    {\"text\": \"Branch 1\", \"children\": [{\"text\": \"Sub-branch 1.1\"}, {\"text\": \"Sub-branch 1.2\"}]}," +
+            "    {\"text\": \"Branch 2\", \"children\": [{\"text\": \"Sub-branch 2.1\"}]}," +
+            "    {\"text\": \"Branch 3\"}" +
             "  ]" +
             "}",
             topic
@@ -276,12 +274,12 @@ public class MindMapBufferLayer implements IBufferLayer {
     }
 
     /**
-     * 从 AI 响应创建思维导图节点
+     * Creates mindmap nodes from the AI-produced data structure.
      */
     @SuppressWarnings("unchecked")
     private int createMindMapNodes(Map<String, Object> mindMapData) {
         try {
-            // 获取 MMapController
+            // Obtain MMapController.
             Controller controller = Controller.getCurrentController();
             if (controller == null) {
                 LogUtils.warn("MindMapBufferLayer: Controller not available");
@@ -297,7 +295,7 @@ public class MindMapBufferLayer implements IBufferLayer {
                 return 0;
             }
 
-            // 设置根节点文本
+            // Set root node text.
             NodeModel rootNode = mapModel.getRootNode();
             String rootText = (String) mindMapData.get("text");
             if (rootText != null) {
@@ -305,11 +303,11 @@ public class MindMapBufferLayer implements IBufferLayer {
                 mapController.nodeChanged(rootNode);
             }
 
-            // 递归创建子节点
+            // Recursively create child nodes.
             List<Map<String, Object>> children =
                 (List<Map<String, Object>>) mindMapData.get("children");
 
-            int[] nodeCount = {1}; // 包括根节点
+            int[] nodeCount = {1}; // includes root
             if (children != null) {
                 createNodesRecursive(rootNode, children, mapController, nodeCount);
             }
@@ -322,7 +320,7 @@ public class MindMapBufferLayer implements IBufferLayer {
     }
 
     /**
-     * 递归创建节点
+     * Recursively creates child nodes.
      */
     @SuppressWarnings("unchecked")
     private void createNodesRecursive(NodeModel parentNode,
@@ -342,7 +340,7 @@ public class MindMapBufferLayer implements IBufferLayer {
             );
             nodeCount[0]++;
 
-            // 递归创建子节点
+            // Recurse into sub-children.
             List<Map<String, Object>> subChildren =
                 (List<Map<String, Object>>) childData.get("children");
             if (subChildren != null && !subChildren.isEmpty()) {

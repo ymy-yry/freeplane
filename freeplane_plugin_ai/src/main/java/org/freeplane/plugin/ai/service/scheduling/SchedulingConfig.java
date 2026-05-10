@@ -9,13 +9,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
 /**
- * 调度配置类 - 管理调度参数和配置
+ * Scheduling configuration - manages scheduler parameters loaded from a properties file.
  */
 public class SchedulingConfig {
-    // 配置文件路径
+    // path to the config resource file
     private static final String CONFIG_FILE = "org/freeplane/plugin/ai/service/scheduling/scheduling.properties";
 
-    // 默认参数值
+    // default parameter values
     private static final double DEFAULT_TEMPERATURE = 0.2;
     private static final double DEFAULT_TOP_P = 0.9;
     private static final Long DEFAULT_SEED = null;
@@ -23,7 +23,7 @@ public class SchedulingConfig {
     private static final double DEFAULT_PRESENCE_PENALTY = 0.0;
     private static final double DEFAULT_FREQUENCY_PENALTY = 0.0;
 
-    // 配置参数
+    // configuration parameters
     private double temperature;
     private double topP;
     private Long seed;
@@ -32,19 +32,19 @@ public class SchedulingConfig {
     private double frequencyPenalty;
     private boolean enabled;
 
-    // 单例实例
+    // singleton instance
     private static volatile SchedulingConfig instance;
 
     /**
-     * 私有构造函数 - 加载配置
+     * Private constructor - loads configuration.
      */
     private SchedulingConfig() {
         loadConfig();
     }
 
     /**
-     * 获取配置单例实例
-     * @return 配置实例
+     * Returns the singleton configuration instance.
+     * @return configuration instance
      */
     public static synchronized SchedulingConfig getInstance() {
         if (instance == null) {
@@ -54,14 +54,14 @@ public class SchedulingConfig {
     }
 
     /**
-     * 重置配置实例
+     * Resets the singleton instance (useful for testing).
      */
     public static synchronized void resetInstance() {
         instance = null;
     }
 
     /**
-     * 加载配置文件
+     * Loads configuration from the properties file.
      */
     private void loadConfig() {
         Properties props = new Properties();
@@ -69,12 +69,12 @@ public class SchedulingConfig {
             InputStream input = getClass().getClassLoader().getResourceAsStream(CONFIG_FILE);
             if (input != null) {
                 props.load(new InputStreamReader(input, StandardCharsets.UTF_8));
-                LogUtils.info("SchedulingConfig: 从 " + CONFIG_FILE + " 加载配置");
+                LogUtils.info("SchedulingConfig: loaded from " + CONFIG_FILE);
             } else {
-                LogUtils.warn("SchedulingConfig: 未找到配置文件，使用默认值");
+                LogUtils.warn("SchedulingConfig: config file not found, using defaults");
             }
         } catch (IOException e) {
-            LogUtils.warn("SchedulingConfig: 加载配置失败", e);
+            LogUtils.warn("SchedulingConfig: failed to load config", e);
         }
 
         temperature = getDoubleProperty(props, "temperature", DEFAULT_TEMPERATURE);
@@ -85,7 +85,7 @@ public class SchedulingConfig {
         frequencyPenalty = getDoubleProperty(props, "frequencyPenalty", DEFAULT_FREQUENCY_PENALTY);
         enabled = getBooleanProperty(props, "enabled", true);
 
-        LogUtils.info("SchedulingConfig: 加载配置 - temperature: " + temperature + ", topP: " + topP);
+        LogUtils.info("SchedulingConfig: config loaded - temperature: " + temperature + ", topP: " + topP);
     }
 
     private double getDoubleProperty(Properties props, String key, double defaultValue) {
@@ -94,7 +94,7 @@ public class SchedulingConfig {
             try {
                 return Double.parseDouble(value);
             } catch (NumberFormatException e) {
-                LogUtils.warn("SchedulingConfig: " + key + " 的值无效，使用默认值", e);
+                LogUtils.warn("SchedulingConfig: invalid value for " + key + ", using default", e);
             }
         }
         return defaultValue;
@@ -106,7 +106,7 @@ public class SchedulingConfig {
             try {
                 return Long.parseLong(value);
             } catch (NumberFormatException e) {
-                LogUtils.warn("SchedulingConfig: " + key + " 的值无效，使用默认值", e);
+                LogUtils.warn("SchedulingConfig: invalid value for " + key + ", using default", e);
             }
         }
         return defaultValue;
@@ -118,7 +118,7 @@ public class SchedulingConfig {
             try {
                 return Integer.parseInt(value);
             } catch (NumberFormatException e) {
-                LogUtils.warn("SchedulingConfig: " + key + " 的值无效，使用默认值", e);
+                LogUtils.warn("SchedulingConfig: invalid value for " + key + ", using default", e);
             }
         }
         return defaultValue;
@@ -141,7 +141,7 @@ public class SchedulingConfig {
         if (temperature >= 0.0 && temperature <= 2.0) {
             this.temperature = temperature;
         } else {
-            LogUtils.warn("SchedulingConfig: 温度必须在 0.0 和 2.0 之间，保持当前值: " + this.temperature);
+            LogUtils.warn("SchedulingConfig: temperature must be between 0.0 and 2.0, keeping current value: " + this.temperature);
         }
     }
 
@@ -153,7 +153,7 @@ public class SchedulingConfig {
         if (topP >= 0.0 && topP <= 1.0) {
             this.topP = topP;
         } else {
-            LogUtils.warn("SchedulingConfig: topP 必须在 0.0 和 1.0 之间，保持当前值: " + this.topP);
+            LogUtils.warn("SchedulingConfig: topP must be between 0.0 and 1.0, keeping current value: " + this.topP);
         }
     }
 
@@ -173,7 +173,7 @@ public class SchedulingConfig {
         if (topK == null || topK > 0) {
             this.topK = topK;
         } else {
-            LogUtils.warn("SchedulingConfig: topK 必须是正数或null，保持当前值: " + this.topK);
+            LogUtils.warn("SchedulingConfig: topK must be a positive integer or null, keeping current value: " + this.topK);
         }
     }
 
@@ -185,7 +185,7 @@ public class SchedulingConfig {
         if (presencePenalty >= -2.0 && presencePenalty <= 2.0) {
             this.presencePenalty = presencePenalty;
         } else {
-            LogUtils.warn("SchedulingConfig: presencePenalty 必须在 -2.0 和 2.0 之间，保持当前值: " + this.presencePenalty);
+            LogUtils.warn("SchedulingConfig: presencePenalty must be between -2.0 and 2.0, keeping current value: " + this.presencePenalty);
         }
     }
 
@@ -197,7 +197,7 @@ public class SchedulingConfig {
         if (frequencyPenalty >= -2.0 && frequencyPenalty <= 2.0) {
             this.frequencyPenalty = frequencyPenalty;
         } else {
-            LogUtils.warn("SchedulingConfig: frequencyPenalty 必须在 -2.0 和 2.0 之间，保持当前值: " + this.frequencyPenalty);
+            LogUtils.warn("SchedulingConfig: frequencyPenalty must be between -2.0 and 2.0, keeping current value: " + this.frequencyPenalty);
         }
     }
 

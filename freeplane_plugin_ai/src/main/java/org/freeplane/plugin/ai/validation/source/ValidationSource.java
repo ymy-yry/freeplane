@@ -3,48 +3,49 @@ package org.freeplane.plugin.ai.validation.source;
 import java.io.IOException;
 
 /**
- * 验证数据源代理接口 —— 统一接入多来源 JSON 数据。
- * 
- * <p>设计要点:
+ * Proxy interface for validation data sources, providing a unified entry point for
+ * multi-origin JSON data.
+ *
+ * <p>Design notes:
  * <ul>
- *   <li>readContent() 统一出口,返回完整 JSON 字符串</li>
- *   <li>getSourceType() 枚举来源类型,用于日志/降级策略区分</li>
- *   <li>isReady() 流式场景下判断数据是否已完整聚合</li>
- *   <li>getDescription() 日志追溯用</li>
+ *   <li>{@link #readContent()} is the single exit point returning the full JSON string</li>
+ *   <li>{@link #getSourceType()} enumerates the origin type for logging and fallback routing</li>
+ *   <li>{@link #isReady()} checks whether data is fully assembled in streaming scenarios</li>
+ *   <li>{@link #getDescription()} provides traceability information for logs</li>
  * </ul>
- * 
- * <p>代理类实现松耦合架构,不绑定具体处理流程(如SnakeDigestGraph),
- * 确保环检测逻辑与数据来源完全解耦。
+ *
+ * <p>The proxy design keeps the architecture loosely coupled: cycle-detection logic (e.g. SnakeDigestGraph)
+ * is fully decoupled from the data origin.
  */
 public interface ValidationSource {
     
     /**
-     * 读取完整 JSON 内容。
-     * 
-     * @return 完整 JSON 字符串
-     * @throws IOException 读取失败时抛出
-     * @throws IllegalStateException 数据未就绪时调用
+     * Reads the full JSON content.
+     *
+     * @return the full JSON string
+     * @throws IOException if reading fails
+     * @throws IllegalStateException if called before the data is ready
      */
     String readContent() throws IOException;
     
     /**
-     * 获取数据源类型。
-     * 
-     * @return SourceType 枚举值
+     * Returns the data source type.
+     *
+     * @return the {@link SourceType} enum value
      */
     SourceType getSourceType();
     
     /**
-     * 检查数据是否已就绪(可读取)。
-     * 
-     * @return true 如果数据完整可用
+     * Returns whether the data is ready to be read.
+     *
+     * @return {@code true} if the data is complete and available
      */
     boolean isReady();
     
     /**
-     * 获取数据源描述(用于日志追溯)。
-     * 
-     * @return 描述字符串,如 "model=ernie-4.0"
+     * Returns a human-readable description of the data source for log tracing.
+     *
+     * @return description string, e.g. "model=ernie-4.0"
      */
     String getDescription();
 }

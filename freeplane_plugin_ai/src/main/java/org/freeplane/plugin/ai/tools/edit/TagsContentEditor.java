@@ -48,33 +48,20 @@ public class TagsContentEditor {
 
     public void editExistingTagsContent(NodeModel nodeModel, EditOperation operation, String targetKey, Integer index,
                                         String value) {
-        processExistingTagsContent(nodeModel, operation, targetKey, index, value, false);
-    }
-
-    public void validateExistingTagsContent(NodeModel nodeModel, EditOperation operation, String targetKey,
-                                            Integer index, String value) {
-        processExistingTagsContent(nodeModel, operation, targetKey, index, value, true);
-    }
-
-    private void processExistingTagsContent(NodeModel nodeModel, EditOperation operation, String targetKey,
-                                            Integer index, String value, boolean dryRun) {
         if (nodeModel == null) {
             throw new IllegalArgumentException("Missing node model.");
         }
         EditOperation resolvedOperation = operation == null ? EditOperation.REPLACE : operation;
-        List<TagReference> existingTagReferences = Tags.getExistingTagReferences(nodeModel);
-        List<String> tags = new ArrayList<>(existingTagReferences.size());
-        for (TagReference reference : existingTagReferences) {
+        List<String> tags = new ArrayList<>(Tags.getTagReferences(nodeModel).size());
+        for (TagReference reference : Tags.getTagReferences(nodeModel)) {
             tags.add(reference == null ? null : reference.getContent());
         }
         switch (resolvedOperation) {
             case ADD:
                 String addedValue = requireTagValue(value);
                 int addIndex = resolveAddIndex(tags.size(), index);
-                if (!dryRun) {
-                    insertTag(tags, addIndex, addedValue);
-                    setTagReferences(nodeModel, tags);
-                }
+                insertTag(tags, addIndex, addedValue);
+                setTagReferences(nodeModel, tags);
                 break;
             case REPLACE:
                 String replacementValue = requireTagValue(value);
@@ -82,20 +69,16 @@ public class TagsContentEditor {
                 if (replaceIndex < 0) {
                     throw new IllegalArgumentException("Invalid tag index for replace.");
                 }
-                if (!dryRun) {
-                    tags.set(replaceIndex, replacementValue);
-                    setTagReferences(nodeModel, tags);
-                }
+                tags.set(replaceIndex, replacementValue);
+                setTagReferences(nodeModel, tags);
                 break;
             case DELETE:
                 int deleteIndex = findTagIndex(tags, targetKey, index);
                 if (deleteIndex < 0) {
                     throw new IllegalArgumentException("Invalid tag index for delete.");
                 }
-                if (!dryRun) {
-                    tags.remove(deleteIndex);
-                    setTagReferences(nodeModel, tags);
-                }
+                tags.remove(deleteIndex);
+                setTagReferences(nodeModel, tags);
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported tag operation: " + resolvedOperation);

@@ -3,7 +3,7 @@ package org.freeplane.plugin.ai.service;
 import java.util.Map;
 
 /**
- * AI服务响应
+ * AI service response.
  */
 public class AIServiceResponse {
     private boolean success;

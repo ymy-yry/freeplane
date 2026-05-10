@@ -7,23 +7,23 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 并查集+LCA优化策略 - 消除重复工具调用
- * 
- * <p>算法原理：
+ * Union-Find + LCA optimization strategy to eliminate redundant tool calls.
+ *
+ * <p>Algorithm:
  * <ol>
- *   <li>使用并查集维护连通分量（可被同一工具处理的节点集合）</li>
- *   <li>对每个连通分量，计算LCA（最近公共祖先）</li>
- *   <li>在LCA节点调用一次工具，覆盖整个子树</li>
+ *   <li>Use union-find to maintain connected components (sets of nodes coverable by the same tool)</li>
+ *   <li>For each component, compute the LCA (Lowest Common Ancestor)</li>
+ *   <li>Invoke the tool once at the LCA node, covering the entire subtree</li>
  * </ol>
- * 
- * <p>复杂度分析：
+ *
+ * <p>Complexity:
  * <ul>
- *   <li>并查集操作：O(α(n))，α为反阿克曼函数，近似O(1)</li>
- *   <li>LCA查询：O(log n)，倍增法</li>
- *   <li>总时间复杂度：O(n·|F|·α(n) + n·log n)</li>
- *   <li>空间复杂度：O(n)</li>
+ *   <li>Union-Find: O(α(n)), where α is the inverse Ackermann function, nearly O(1)</li>
+ *   <li>LCA query: O(log n) using binary lifting</li>
+ *   <li>Total: O(n·|F|·α(n) + n·log n)</li>
+ *   <li>Space: O(n)</li>
  * </ul>
- * 
+ *
  * @author AI Plugin Team
  * @since 1.13.x
  */
@@ -34,14 +34,14 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
     
     @Override
     public boolean supports(String toolName, Map<String, Object> parameters) {
-        // 支持读取和创建操作
+        // supports read and create operations
         if (!"readNodesWithDescendants".equals(toolName) && !"createNodes".equals(toolName)) {
             return false;
         }
         
-        // 检查工具覆盖重叠度
+        // check tool coverage overlap ratio
         double overlap = getToolOverlap(parameters);
-        return overlap > 0.3; // 重叠度 > 30% 时使用
+        return overlap > 0.3; // use when overlap > 30%
     }
     
     @Override
@@ -53,7 +53,7 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
         
         int n = nodes.size();
         
-        // 步骤1：初始化并查集
+        // Step 1: initialize union-find
         parent = new int[n];
         rank = new int[n];
         for (int i = 0; i < n; i++) {
@@ -61,7 +61,7 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
             rank[i] = 0;
         }
         
-        // 步骤2：按工具覆盖范围合并节点
+        // Step 2: merge nodes by tool coverage range
         for (ToolProfile tool : tools) {
             List<String> coveredNodes = tool.getCoveredNodes();
             if (coveredNodes.size() > 1) {
@@ -75,14 +75,14 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
             }
         }
         
-        // 步骤3：对每个连通分量，找到LCA
+        // Step 3: find LCA for each connected component
         Map<Integer, List<Integer>> components = new HashMap<>();
         for (int i = 0; i < n; i++) {
             int root = find(i);
             components.computeIfAbsent(root, k -> new ArrayList<>()).add(i);
         }
         
-        // 步骤4：在LCA处调用工具
+        // Step 4: invoke tool at LCA
         List<LCAOperation> operations = new ArrayList<>();
         for (List<Integer> component : components.values()) {
             TreeNode lcaNode = findLCA(nodes, component);
@@ -96,7 +96,7 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
         long elapsed = System.currentTimeMillis() - startTime;
         double totalCost = computeTotalCost(operations);
         
-        // 构建优化结果
+        // Build optimised result
         List<OptimizedToolCall.ToolCallStep> steps = buildToolCallSteps(operations, parameters);
         
         return new OptimizedToolCall(
@@ -117,11 +117,11 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
         return "UnionFindLCA";
     }
     
-    // ========== 并查集操作 ==========
+    // ========== Union-Find operations ==========
     
     private int find(int x) {
         if (parent[x] != x) {
-            parent[x] = find(parent[x]);  // 路径压缩
+            parent[x] = find(parent[x]);  // path compression
         }
         return parent[x];
     }
@@ -132,7 +132,7 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
         
         if (rootX == rootY) return;
         
-        // 按秩合并
+        // union by rank
         if (rank[rootX] < rank[rootY]) {
             parent[rootX] = rootY;
         } else if (rank[rootX] > rank[rootY]) {
@@ -143,13 +143,13 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
         }
     }
     
-    // ========== LCA计算（简化版） ==========
+    // ========== LCA computation (simplified) ==========
     
     private TreeNode findLCA(List<TreeNode> nodes, List<Integer> indices) {
         if (indices.isEmpty()) return null;
         if (indices.size() == 1) return nodes.get(indices.get(0));
         
-        // 简化实现：返回深度最浅的节点作为LCA
+        // Simplified: return the shallowest node as LCA
         TreeNode lca = nodes.get(indices.get(0));
         for (int i = 1; i < indices.size(); i++) {
             TreeNode node = nodes.get(indices.get(i));
@@ -160,7 +160,7 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
         return lca;
     }
     
-    // ========== 辅助方法 ==========
+    // ========== Helper methods ==========
     
     private int findNodeIndex(List<TreeNode> nodes, String nodeId) {
         for (int i = 0; i < nodes.size(); i++) {
@@ -241,15 +241,13 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
         for (int i = 0; i < count; i++) {
             nodes.add(new TreeNode(
                 "node_" + i,
-                i / 5  // 深度：每5个节点一层
+                i / 5  // depth: one level per 5 nodes
             ));
         }
         return nodes;
     }
     
-    /**
-     * 树节点
-     */
+    /** Tree node. */
     public static class TreeNode {
         private final String nodeId;
         private final int depth;
@@ -263,9 +261,7 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
         public int getDepth() { return depth; }
     }
     
-    /**
-     * LCA操作
-     */
+    /** LCA operation. */
     public static class LCAOperation {
         private final TreeNode lcaNode;
         private final ToolProfile tool;
@@ -282,9 +278,7 @@ public class UnionFindLCAStrategy implements ToolExecutionStrategy {
         public int getCoveredNodeCount() { return coveredNodeCount; }
     }
     
-    /**
-     * 工具画像（与贪心策略共享）
-     */
+    /** Tool profile (shared with the greedy strategy). */
     public static class ToolProfile {
         private final String name;
         private final long timeCost;

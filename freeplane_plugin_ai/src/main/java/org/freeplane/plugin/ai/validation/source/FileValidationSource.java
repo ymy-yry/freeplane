@@ -6,19 +6,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * 文件导入数据源 —— 从 .mm/.json 文件读取内容。
+ * File import data source — reads content from .mm/.json files.
  * 
- * <p>接入 MapRestController.handleImportMap 导入前的环检测拦截。
+ * <p>Hooks into MapRestController.handleImportMap for cycle-detection interception before import.
  */
 public final class FileValidationSource implements ValidationSource {
     
     private final Path filePath;
     private final String filename;
-    private String content; // 兼容旧构造函数或缓存
+    private String content; // cached content or content passed via the legacy constructor
     
     /**
-     * @param content  文件内容字符串(已读入内存)
-     * @param filename 文件名(用于日志)
+     * @param content  the file content string (already read into memory)
+     * @param filename the file name (used for logging)
      */
     public FileValidationSource(String content, String filename) {
         this.filePath = null;
@@ -27,8 +27,8 @@ public final class FileValidationSource implements ValidationSource {
     }
     
     /**
-     * @param filePath   文件路径
-     * @param filename   文件名(用于日志)
+     * @param filePath   the file path
+     * @param filename   the file name (used for logging)
      */
     public FileValidationSource(Path filePath, String filename) {
         this.filePath = filePath;
@@ -39,7 +39,7 @@ public final class FileValidationSource implements ValidationSource {
     @Override
     public String readContent() throws IOException {
         if (content != null) {
-            return content; // 已缓存内容
+            return content; // return cached content
         }
         if (filePath == null || !Files.exists(filePath)) {
             throw new IOException("File not found: " + filePath);
@@ -55,7 +55,7 @@ public final class FileValidationSource implements ValidationSource {
     @Override
     public boolean isReady() {
         if (content != null) {
-            return true; // 已缓存内容
+            return true; // content is already cached
         }
         return filePath != null && Files.exists(filePath);
     }

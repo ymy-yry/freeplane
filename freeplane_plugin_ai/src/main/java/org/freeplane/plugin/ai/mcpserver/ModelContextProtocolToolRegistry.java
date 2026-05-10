@@ -21,8 +21,9 @@ public class ModelContextProtocolToolRegistry {
     private final JsonSchemaConverterFactory schemaConverterFactory;
 
     /**
-     * 方案B：Schema懒加载缓存。
-     * volatile 保证多线程可见性，防止指令重排序导致拿到半初始化对象。
+     * Approach B: lazy-loaded Schema cache.
+     * {@code volatile} ensures multi-thread visibility and prevents instruction reordering
+     * that could expose a half-initialised object.
      */
     private volatile List<ModelContextProtocolTool> cachedTools = null;
 
@@ -33,16 +34,17 @@ public class ModelContextProtocolToolRegistry {
     }
 
     /**
-     * 列出所有已注册工具的 Schema 列表。
-     * 采用双重检查锁（Double-Checked Locking）实现懒加载：
-     *   - 冷路径（首次调用）：触发反射扫描 + 递归展开 Schema，结果写入 cachedTools
-     *   - 热路径（后续调用）：第一重检查直接返回，O(1)且无锁竞争
+     * Returns the list of Schema descriptors for all registered tools.
+     * Uses Double-Checked Locking for lazy initialisation:
+     *   - Cold path (first call): triggers reflection scan + recursive Schema expansion; result written to cachedTools.
+     *   - Hot path (subsequent calls): first check returns immediately, O(1) with no lock contention.
      */
     public List<ModelContextProtocolTool> listTools() {
-        // 第一重检查：不加锁，99%情况下缓存已就绪，直接返回
+        // First check: no lock; in 99 % of calls the cache is already ready.
         if (cachedTools == null) {
             synchronized (this) {
-                // 第二重检查：加锁后再判断一次，防止多线程同时通过第一重检查导致重复构建
+                // Second check: re-test under lock to prevent duplicate builds
+                // when multiple threads pass the first check simultaneously.
                 if (cachedTools == null) {
                     LogUtils.info("ModelContextProtocolToolRegistry: building tool schema cache");
                     cachedTools = buildToolList();
@@ -54,8 +56,9 @@ public class ModelContextProtocolToolRegistry {
     }
 
     /**
-     * 使缓存失效。
-     * 当动态工具注册发生变化时调用，下次 listTools() 将重新构建 Schema 列表。
+     * Invalidates the cache.
+     * Call this when the set of dynamically registered tools changes;
+     * the next call to {@link #listTools()} will rebuild the Schema list.
      */
     public void invalidateCache() {
         synchronized (this) {
@@ -65,8 +68,8 @@ public class ModelContextProtocolToolRegistry {
     }
 
     /**
-     * 内部构建方法：执行反射扫描 + 递归 Schema 展开。
-     * 只在缓存未命中或失效时被调用。
+     * Internal build method: performs the reflection scan and recursive Schema expansion.
+     * Only called on a cache miss or after invalidation.
      */
     private List<ModelContextProtocolTool> buildToolList() {
         List<ToolSpecification> specifications = ToolSpecifications.toolSpecificationsFrom(toolSet);

@@ -5,28 +5,28 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 工具性能画像 - 基于实际性能数据的优先级定义
+ * Tool performance profile — priority definitions based on actual performance data.
  * 
- * <p>根据工具操作的特性，将14个工具分为8个优先级层级。
- * 数据来源于 Freeplane 1.10+ 版本性能测试结果。
+ * <p>Based on the characteristics of each tool operation, the 14 tools are grouped into
+ * 8 priority tiers. Data sourced from Freeplane 1.10+ performance test results.
  * 
- * <h3>优先级分类原则：</h3>
+ * <h3>Priority classification principles:</h3>
  * <ol>
- *   <li><b>95-100分</b>：核心树结构操作，直接操作数据模型，响应最快</li>
- *   <li><b>88-94分</b>：样式系统操作，有缓存机制，局部修改开销小</li>
- *   <li><b>85-90分</b>：纯选择操作，几乎无额外计算</li>
- *   <li><b>80-88分</b>：搜索操作，内置优化但需遍历</li>
- *   <li><b>75-82分</b>：过滤操作，有专用优化但仍涉及遍历和重绘</li>
- *   <li><b>65-75分</b>：公式计算，依赖跟踪机制，复杂表达式开销大</li>
- *   <li><b>60-70分</b>：导出操作，涉及全图遍历和输出生成</li>
- *   <li><b>55-65分</b>：批量操作，大量节点时性能明显下降</li>
+ *   <li><b>95–100</b>: Core tree-structure operations; directly manipulate the data model, fastest response</li>
+ *   <li><b>88–94</b>: Style-system operations; have a cache mechanism, low cost for partial changes</li>
+ *   <li><b>85–90</b>: Pure selection operations; almost no extra computation</li>
+ *   <li><b>80–88</b>: Search operations; built-in optimisations but require traversal</li>
+ *   <li><b>75–82</b>: Filter operations; dedicated optimisations but still involve traversal and repaint</li>
+ *   <li><b>65–75</b>: Formula evaluation; dependency-tracking mechanism, expensive for complex expressions</li>
+ *   <li><b>60–70</b>: Export operations; involve full-graph traversal and output generation</li>
+ *   <li><b>55–65</b>: Bulk operations; performance degrades noticeably with large node counts</li>
  * </ol>
  * 
- * <h3>使用场景：</h3>
+ * <h3>Usage scenarios:</h3>
  * <ul>
- *   <li>贪心策略：按价值密度排序时使用优先级作为权重</li>
- *   <li>完全背包：优先级决定工具选择的价值分数</li>
- *   <li>策略路由：根据工具类型自动选择最优算法</li>
+ *   <li>Greedy strategy: priority used as weight when sorting by value density</li>
+ *   <li>Unbounded knapsack: priority determines the value score for tool selection</li>
+ *   <li>Strategy routing: automatically selects the best algorithm based on tool type</li>
  * </ul>
  * 
  * @author AI Plugin Team
@@ -34,117 +34,117 @@ import java.util.Map;
  */
 public final class ToolPerformanceProfile {
     
-    // ========== 优先级常量（分数越高，性能越好，优先调用） ==========
+    // ========== Priority constants (higher score = better performance = call first) ==========
     
-    /** 核心树结构操作：创建/删除/移动/复制/粘贴节点、折叠/展开、更改文本 */
-    public static final int PRIORITY_TREE_OPERATIONS = 97;  // 95-100 取中值
+    /** Core tree-structure operations: create/delete/move/copy/paste nodes, fold/expand, change text. */
+    public static final int PRIORITY_TREE_OPERATIONS = 97;  // mid-point of 95-100
     
-    /** 样式操作：应用样式、设置图标、字体颜色、节点背景、超链接 */
-    public static final int PRIORITY_STYLE_OPERATIONS = 91;  // 88-94 取中值
+    /** Style operations: apply style, set icon, font colour, node background, hyperlink. */
+    public static final int PRIORITY_STYLE_OPERATIONS = 91;  // mid-point of 88-94
     
-    /** 选择导航：选中节点、跳转、展开到指定层级 */
-    public static final int PRIORITY_SELECTION_OPERATIONS = 87;  // 85-90 取中值
+    /** Selection and navigation: select node, jump to, expand to specified level. */
+    public static final int PRIORITY_SELECTION_OPERATIONS = 87;  // mid-point of 85-90
     
-    /** 搜索操作：查找节点、搜索替换（基本模式） */
-    public static final int PRIORITY_SEARCH_OPERATIONS = 84;  // 80-88 取中值
+    /** Search operations: find node, search and replace (basic mode). */
+    public static final int PRIORITY_SEARCH_OPERATIONS = 84;  // mid-point of 80-88
     
-    /** 过滤操作：应用过滤器、显示/隐藏节点 */
-    public static final int PRIORITY_FILTER_OPERATIONS = 78;  // 75-82 取中值
+    /** Filter operations: apply filter, show/hide nodes. */
+    public static final int PRIORITY_FILTER_OPERATIONS = 78;  // mid-point of 75-82
     
-    /** 公式计算：节点公式、属性公式 */
-    public static final int PRIORITY_FORMULA_OPERATIONS = 70;  // 65-75 取中值
+    /** Formula evaluation: node formulas, attribute formulas. */
+    public static final int PRIORITY_FORMULA_OPERATIONS = 70;  // mid-point of 65-75
     
-    /** 导出操作：导出为PNG、Markdown、OPML、XML等 */
-    public static final int PRIORITY_EXPORT_OPERATIONS = 65;  // 60-70 取中值
+    /** Export operations: export to PNG, Markdown, OPML, XML, etc. */
+    public static final int PRIORITY_EXPORT_OPERATIONS = 65;  // mid-point of 60-70
     
-    /** 批量操作：大规模节点批量修改、复杂条件样式 */
-    public static final int PRIORITY_BATCH_OPERATIONS = 60;  // 55-65 取中值
+    /** Bulk operations: large-scale batch node edits, complex conditional styles. */
+    public static final int PRIORITY_BATCH_OPERATIONS = 60;  // mid-point of 55-65
     
-    // ========== 工具到优先级的映射 ==========
+    // ========== Tool-to-priority mapping ==========
     
     /**
-     * 工具名称到优先级的映射表
-     * <p>根据 Freeplane 14个工具的实际功能特性分类
+     * Map of tool name to priority score.
+     * <p>Categorises the 14 Freeplane tools by their actual functional characteristics.
      */
     private static final Map<String, Integer> TOOL_PRIORITY_MAP = buildPriorityMap();
     
     private static Map<String, Integer> buildPriorityMap() {
         Map<String, Integer> map = new HashMap<>();
         
-        // ===== 优先级1：核心树结构操作（97分）=====
-        map.put("createNodes", PRIORITY_TREE_OPERATIONS);           // 创建节点
-        map.put("deleteNodes", PRIORITY_TREE_OPERATIONS);          // 删除节点
-        map.put("moveNodes", PRIORITY_TREE_OPERATIONS);            // 移动节点
-        map.put("copyNodes", PRIORITY_TREE_OPERATIONS);            // 复制节点
-        map.put("pasteNodes", PRIORITY_TREE_OPERATIONS);           // 粘贴节点
-        map.put("foldBranch", PRIORITY_TREE_OPERATIONS);           // 折叠分支
-        map.put("expandBranch", PRIORITY_TREE_OPERATIONS);         // 展开分支
-        map.put("edit", PRIORITY_TREE_OPERATIONS);                 // 编辑节点文本（通过edit工具）
+        // ===== Priority 1: core tree-structure operations (97) =====
+        map.put("createNodes", PRIORITY_TREE_OPERATIONS);           // create node
+        map.put("deleteNodes", PRIORITY_TREE_OPERATIONS);          // delete node
+        map.put("moveNodes", PRIORITY_TREE_OPERATIONS);            // move node
+        map.put("copyNodes", PRIORITY_TREE_OPERATIONS);            // copy node
+        map.put("pasteNodes", PRIORITY_TREE_OPERATIONS);           // paste node
+        map.put("foldBranch", PRIORITY_TREE_OPERATIONS);           // fold branch
+        map.put("expandBranch", PRIORITY_TREE_OPERATIONS);         // expand branch
+        map.put("edit", PRIORITY_TREE_OPERATIONS);                 // edit node text (via edit tool)
         
-        // ===== 优先级2：样式操作（91分）=====
-        map.put("applyStyle", PRIORITY_STYLE_OPERATIONS);          // 应用样式
-        map.put("setIcon", PRIORITY_STYLE_OPERATIONS);             // 设置图标
-        map.put("setNodeColor", PRIORITY_STYLE_OPERATIONS);        // 设置字体颜色
-        map.put("setNodeBackground", PRIORITY_STYLE_OPERATIONS);   // 设置节点背景
-        map.put("setHyperlink", PRIORITY_STYLE_OPERATIONS);        // 设置超链接
+        // ===== Priority 2: style operations (91) =====
+        map.put("applyStyle", PRIORITY_STYLE_OPERATIONS);          // apply style
+        map.put("setIcon", PRIORITY_STYLE_OPERATIONS);             // set icon
+        map.put("setNodeColor", PRIORITY_STYLE_OPERATIONS);        // set font colour
+        map.put("setNodeBackground", PRIORITY_STYLE_OPERATIONS);   // set node background
+        map.put("setHyperlink", PRIORITY_STYLE_OPERATIONS);        // set hyperlink
         
-        // ===== 优先级3：选择导航（87分）=====
-        map.put("selectNode", PRIORITY_SELECTION_OPERATIONS);      // 选中节点
-        map.put("navigateToNode", PRIORITY_SELECTION_OPERATIONS);  // 跳转到节点
-        map.put("expandToLevel", PRIORITY_SELECTION_OPERATIONS);   // 展开到指定层级
+        // ===== Priority 3: selection and navigation (87) =====
+        map.put("selectNode", PRIORITY_SELECTION_OPERATIONS);      // select node
+        map.put("navigateToNode", PRIORITY_SELECTION_OPERATIONS);  // navigate to node
+        map.put("expandToLevel", PRIORITY_SELECTION_OPERATIONS);   // expand to level
         
-        // ===== 优先级4：搜索操作（84分）=====
-        map.put("findNode", PRIORITY_SEARCH_OPERATIONS);           // 查找节点
-        map.put("searchAndReplace", PRIORITY_SEARCH_OPERATIONS);   // 搜索替换
+        // ===== Priority 4: search operations (84) =====
+        map.put("findNode", PRIORITY_SEARCH_OPERATIONS);           // find node
+        map.put("searchAndReplace", PRIORITY_SEARCH_OPERATIONS);   // search and replace
         
-        // ===== 优先级5：过滤操作（78分）=====
-        map.put("applyFilter", PRIORITY_FILTER_OPERATIONS);        // 应用过滤器
-        map.put("filterComposer", PRIORITY_FILTER_OPERATIONS);     // 过滤器组合器
-        map.put("showHideNodes", PRIORITY_FILTER_OPERATIONS);      // 显示/隐藏节点
+        // ===== Priority 5: filter operations (78) =====
+        map.put("applyFilter", PRIORITY_FILTER_OPERATIONS);        // apply filter
+        map.put("filterComposer", PRIORITY_FILTER_OPERATIONS);     // filter composer
+        map.put("showHideNodes", PRIORITY_FILTER_OPERATIONS);      // show/hide nodes
         
-        // ===== 优先级6：公式计算（70分）=====
-        map.put("calculateFormula", PRIORITY_FORMULA_OPERATIONS);  // 计算公式
-        map.put("evaluateProperty", PRIORITY_FORMULA_OPERATIONS);  // 评估属性公式
+        // ===== Priority 6: formula evaluation (70) =====
+        map.put("calculateFormula", PRIORITY_FORMULA_OPERATIONS);  // calculate formula
+        map.put("evaluateProperty", PRIORITY_FORMULA_OPERATIONS);  // evaluate attribute formula
         
-        // ===== 优先级7：导出操作（65分）=====
-        map.put("exportToPng", PRIORITY_EXPORT_OPERATIONS);        // 导出PNG
-        map.put("exportToMarkdown", PRIORITY_EXPORT_OPERATIONS);   // 导出Markdown
-        map.put("exportToOpml", PRIORITY_EXPORT_OPERATIONS);       // 导出OPML
-        map.put("exportToXml", PRIORITY_EXPORT_OPERATIONS);        // 导出XML
-        map.put("exportToPdf", PRIORITY_EXPORT_OPERATIONS - 5);    // 导出PDF（更慢，减5分）
+        // ===== Priority 7: export operations (65) =====
+        map.put("exportToPng", PRIORITY_EXPORT_OPERATIONS);        // export to PNG
+        map.put("exportToMarkdown", PRIORITY_EXPORT_OPERATIONS);   // export to Markdown
+        map.put("exportToOpml", PRIORITY_EXPORT_OPERATIONS);       // export to OPML
+        map.put("exportToXml", PRIORITY_EXPORT_OPERATIONS);        // export to XML
+        map.put("exportToPdf", PRIORITY_EXPORT_OPERATIONS - 5);    // export to PDF (slower, -5)
         
-        // ===== 优先级8：批量操作（60分）=====
-        map.put("batchModify", PRIORITY_BATCH_OPERATIONS);         // 批量修改
-        map.put("applyConditionalStyle", PRIORITY_BATCH_OPERATIONS); // 条件样式
+        // ===== Priority 8: bulk operations (60) =====
+        map.put("batchModify", PRIORITY_BATCH_OPERATIONS);         // batch modify
+        map.put("applyConditionalStyle", PRIORITY_BATCH_OPERATIONS); // conditional style
         
         return Collections.unmodifiableMap(map);
     }
     
     /**
-     * 获取工具的优先级分数
-     * 
-     * @param toolName 工具名称
-     * @return 优先级分数（55-100），未知工具返回默认值70
+     * Returns the priority score for the given tool.
+     *
+     * @param toolName the tool name
+     * @return the priority score (55–100); defaults to 70 for unknown tools
      */
     public static int getPriority(String toolName) {
         return TOOL_PRIORITY_MAP.getOrDefault(toolName, 70);
     }
     
     /**
-     * 判断工具是否属于高性能类别（优先级≥85）
-     * 
-     * @param toolName 工具名称
-     * @return true表示高性能工具，推荐优先使用
+     * Returns {@code true} if the tool belongs to the high-performance tier (priority ≥ 85).
+     *
+     * @param toolName the tool name
+     * @return {@code true} for high-performance tools, recommended to call first
      */
     public static boolean isHighPerformance(String toolName) {
         return getPriority(toolName) >= 85;
     }
     
     /**
-     * 判断工具是否属于中等性能类别（优先级70-84）
-     * 
-     * @param toolName 工具名称
-     * @return true表示中等性能工具，需谨慎使用
+     * Returns {@code true} if the tool belongs to the medium-performance tier (priority 70–84).
+     *
+     * @param toolName the tool name
+     * @return {@code true} for medium-performance tools; use with care
      */
     public static boolean isMediumPerformance(String toolName) {
         int priority = getPriority(toolName);
@@ -152,51 +152,51 @@ public final class ToolPerformanceProfile {
     }
     
     /**
-     * 判断工具是否属于低性能类别（优先级<70）
-     * 
-     * @param toolName 工具名称
-     * @return true表示低性能工具，应避免高频调用
+     * Returns {@code true} if the tool belongs to the low-performance tier (priority &lt; 70).
+     *
+     * @param toolName the tool name
+     * @return {@code true} for low-performance tools; avoid high-frequency calls
      */
     public static boolean isLowPerformance(String toolName) {
         return getPriority(toolName) < 70;
     }
     
     /**
-     * 获取工具的优先级层级描述
-     * 
-     * @param toolName 工具名称
-     * @return 层级描述（如"核心树结构操作"）
+     * Returns a description of the priority tier for the given tool.
+     *
+     * @param toolName the tool name
+     * @return a tier description (e.g. "Core tree-structure operations (95–100)")
      */
     public static String getPriorityLevelDescription(String toolName) {
         int priority = getPriority(toolName);
         
         if (priority >= 95) {
-            return "核心树结构操作（95-100分）";
+            return "Core tree-structure operations (95-100)";
         } else if (priority >= 88) {
-            return "样式操作（88-94分）";
+            return "Style operations (88-94)";
         } else if (priority >= 85) {
-            return "选择导航操作（85-90分）";
+            return "Selection/navigation operations (85-90)";
         } else if (priority >= 80) {
-            return "搜索操作（80-88分）";
+            return "Search operations (80-88)";
         } else if (priority >= 75) {
-            return "过滤操作（75-82分）";
+            return "Filter operations (75-82)";
         } else if (priority >= 65) {
-            return "公式/导出操作（60-75分）";
+            return "Formula/export operations (60-75)";
         } else {
-            return "批量操作（55-65分）";
+            return "Bulk operations (55-65)";
         }
     }
     
     /**
-     * 获取所有已注册的工具优先级映射（用于调试）
-     * 
-     * @return 不可修改的映射表
+     * Returns an unmodifiable view of all registered tool priorities (for debugging).
+     *
+     * @return the unmodifiable priority map
      */
     public static Map<String, Integer> getAllToolPriorities() {
         return TOOL_PRIORITY_MAP;
     }
     
     private ToolPerformanceProfile() {
-        // 防止实例化
+        // prevent instantiation
     }
 }

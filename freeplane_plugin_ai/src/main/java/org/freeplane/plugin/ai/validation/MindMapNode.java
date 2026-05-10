@@ -4,7 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 思维导图节点模型（仅用于验证期间的轻量内存表示，与 Freeplane 核心 NodeModel 解耦）
+ * Mind-map node model (lightweight in-memory representation used only during validation,
+ * decoupled from Freeplane’s core NodeModel).
  */
 public class MindMapNode {
     private String id;

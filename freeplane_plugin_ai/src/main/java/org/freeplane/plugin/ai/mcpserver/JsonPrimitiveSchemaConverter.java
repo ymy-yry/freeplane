@@ -13,8 +13,9 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * 原始类型转换器集合（String / Integer / Number / Boolean / Enum / Null），
- * 合并为单一类以减少文件数量，它们结构简单、无递归嵌套。
+ * Primitive type converters (String / Integer / Number / Boolean / Enum / Null),
+ * merged into a single class to reduce file count. These types are structurally simple
+ * and require no recursive nesting.
  */
 class JsonPrimitiveSchemaConverter
         implements JsonSchemaConverter<JsonSchemaElement> {

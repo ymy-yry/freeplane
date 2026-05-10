@@ -10,11 +10,11 @@ import org.freeplane.plugin.ai.maps.AvailableMaps;
 import java.io.IOException;
 
 /**
- * REST API 路由分发器。
- * 负责将所有 /api/* 路径的请求分发到对应的 Controller 方法。
- * 使用 HttpServer 的上下文注册机制，将路径前缀绑定到 HttpHandler。
+ * REST API request dispatcher.
+ * Routes all /api/* requests to the corresponding controller methods
+ * by registering path-prefix contexts on an HttpServer.
  *
- * 路由表：
+ * Route table:
  *   GET  /api/map/current           → MapRestController.handleCurrentMap
  *   GET  /api/maps                  → MapRestController.handleGetAllMaps
  *   POST /api/maps/create           → MapRestController.handleCreateMap
@@ -50,8 +50,8 @@ public class RestApiRouter {
     }
 
     /**
-     * 将所有路由注册到 HttpServer 实例上。
-     * 每个路径前缀绑定一个 HttpHandler，内部再做二级路径分发。
+     * Registers all routes on the given HttpServer instance.
+     * Each path prefix is bound to an HttpHandler that dispatches to the appropriate method.
      */
     public void registerAll(HttpServer server) {
         server.createContext("/api/map", buildMapHandler());
@@ -69,7 +69,7 @@ public class RestApiRouter {
                 if ("GET".equalsIgnoreCase(method) && path.equals("/api/map/current")) {
                     mapController.handleCurrentMap(exchange);
                 } else if ("GET".equalsIgnoreCase(method) && path.startsWith("/api/nodes/") && !isSpecialNodePath(path)) {
-                    // /api/nodes/{nodeId} - 单节点详情，由 map context 统一处理
+                    // /api/nodes/{nodeId} - single node detail, handled by map context
                     String nodeId = path.substring("/api/nodes/".length());
                     mapController.handleGetNode(exchange, nodeId);
                 } else {
@@ -93,10 +93,10 @@ public class RestApiRouter {
                 }
 
                 if ("GET".equalsIgnoreCase(method) && path.equals("/api/maps")) {
-                    // GET /api/maps - 获取所有导图列表
+                    // GET /api/maps - list all open mindmaps
                     mapController.handleGetAllMaps(exchange);
                 } else if ("GET".equalsIgnoreCase(method) && path.matches("/api/maps/[^/]+")) {
-                    // GET /api/maps/{mapId} - 获取指定导图
+                    // GET /api/maps/{mapId} - get specific mindmap
                     String mapId = path.substring("/api/maps/".length());
                     mapController.handleGetMapById(exchange, mapId);
                 } else if ("POST".equalsIgnoreCase(method)) {

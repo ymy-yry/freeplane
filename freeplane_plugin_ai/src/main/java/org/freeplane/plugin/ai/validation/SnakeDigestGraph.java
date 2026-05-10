@@ -3,64 +3,65 @@ package org.freeplane.plugin.ai.validation;
 import java.util.*;
 
 /**
- * 蛇吞蛋图容器（SnakeDigestGraph）—— 环检测专用数据容器。
+ * SnakeDigestGraph — a directed graph container dedicated to cycle detection.
  *
- * <h3>命名语义</h3>
+ * <h3>Naming rationale</h3>
  * <ul>
- *   <li><b>Snake</b>：蛇吞蛋原理中的"蛇"，驱动整个解析流程</li>
- *   <li><b>Digest</b>：消化行为——只保留 id/text/edges 三类"蛋液"，
- *       JsonNode 对象（"蛋壳"）在解析后即可被 GC 回收</li>
- *   <li><b>Graph</b>：底层数据结构为有向图（邻接表）</li>
+ *   <li><b>Snake</b>: the "snake" in the snake-digest metaphor, driving the entire parsing flow</li>
+ *   <li><b>Digest</b>: digestion behaviour — only the three essential "nutrients" (id/text/edges) are
+ *       retained; JsonNode objects (the "shell") can be GC’d immediately after parsing</li>
+ *   <li><b>Graph</b>: the underlying data structure is a directed graph (adjacency list)</li>
  * </ul>
  *
- * <h3>蛇缓张嘴扩容策略</h3>
+ * <h3>Growth strategy (lazy-mouth expansion)</h3>
  * <ul>
- *   <li>外层邻接表 Map 初始容量 {@value #INITIAL_CAPACITY}，
- *       超限后 LinkedHashMap 内部 ×2 扩容</li>
- *   <li>每个节点的子节点列表初始容量 <b>0</b>，叶子节点不分配任何数组空间；
- *       首次 {@code addEdge} 时扩容至1，后续按 ArrayList 1.5 倍增长
- *       （1 → 2 → 3 → 4 → 6 → 9...）</li>
- *   <li>DFS 辅助 Map 由 {@link #newColorMap()} / {@link #newParentMap()} 按
- *       当前节点总数预分配，避免 DFS 过程中触发 rehash</li>
+ *   <li>The outer adjacency-list Map starts with {@value #INITIAL_CAPACITY} buckets;
+ *       once the threshold is exceeded LinkedHashMap doubles internally.</li>
+ *   <li>Each node’s child list starts with capacity <b>0</b> so leaf nodes allocate no array;
+ *       the first {@code addEdge} call grows it to 1, then ArrayList grows at 1.5×
+ *       (1 → 2 → 3 → 4 → 6 → 9 …)</li>
+ *   <li>DFS auxiliary maps created by {@link #newColorMap()} / {@link #newParentMap()} are
+ *       pre-sized to the current node count to avoid rehashing during DFS.</li>
  * </ul>
  *
- * <h3>职责边界</h3>
- * <p>本类只负责持有图结构数据并提供读写操作。
- * 不含验证逻辑、不含 DFS 算法、不含 JSON 解析——这三部分全部由
- * {@link MindMapGenerationValidator} 负责。
+ * <h3>Responsibility boundary</h3>
+ * <p>This class only holds the graph structure and provides read/write operations.
+ * It contains no validation logic, no DFS algorithm, and no JSON parsing — all three
+ * are handled by {@link MindMapGenerationValidator}.
  */
 public final class SnakeDigestGraph {
 
-    /** 初始桶数：针对思维导图小图（4~8节点）设计，超过6节点后首次自动扩容 */
+    /** Initial bucket count: designed for small mind-maps (4–8 nodes); auto-doubles after 6 nodes. */
     static final int   INITIAL_CAPACITY = 8;
     static final float LOAD_FACTOR      = 0.75f;
 
     private String rootId;
 
     /**
-     * 邻接表：nodeId → 子节点 ID 列表（保序）。
-     * 初始8桶，超限 ×2 扩容；每条子列表初始容量0（叶子节点不分配数组空间）。
+     * Adjacency list: nodeId → list of child node IDs (insertion-ordered).
+     * Starts with 8 buckets and doubles on overflow; each child list starts with capacity 0
+     * (leaf nodes allocate no array).
      */
     private final Map<String, List<String>> adjacency =
             new LinkedHashMap<>(INITIAL_CAPACITY, LOAD_FACTOR);
 
     /**
-     * 标签表：nodeId → text（仅用于验证报告和根节点有效性检查）。
-     * 与邻接表同步扩容节奏。
+     * Label map: nodeId → text (used only for validation reports and root-node validity checks).
+     * Grows in sync with the adjacency list.
      */
     private final Map<String, String> labels =
             new HashMap<>(INITIAL_CAPACITY, LOAD_FACTOR);
 
     // -------------------------------------------------------------------------
-    // 写入接口（JSON 解析 / DFS 遍历阶段逐步调用，"蛇缓张嘴"）
+    // Write interface (called incrementally during JSON parsing / DFS traversal)
     // -------------------------------------------------------------------------
 
     /**
-     * 注册节点到邻接表。
-     * 子节点列表初始容量为 0，叶子节点不分配任何 Object[] 空间。
+     * Registers a node in the adjacency list.
+     * The child list starts with capacity 0 so leaf nodes allocate no Object[] array.
      *
-     * @param id   节点 ID
-     * @param text 节点文本（用于验证报告）
+     * @param id   the node ID
+     * @param text the node text (used for validation reports)
      */
     public void registerNode(String id, String text) {
         adjacency.putIfAbsent(id, new ArrayList<>(0));
@@ -68,19 +69,19 @@ public final class SnakeDigestGraph {
     }
 
     /**
-     * 添加有向边 parentId → childId。
-     * 触发子节点列表的 ArrayList 懒扩容：首次 add 从0扩至1，后续按1.5倍增长。
+     * Adds a directed edge parentId → childId.
+     * Triggers lazy ArrayList growth: first add grows from 0 to 1, then 1.5× thereafter.
      *
-     * @param parentId 父节点 ID
-     * @param childId  子节点 ID
+     * @param parentId the parent node ID
+     * @param childId  the child node ID
      */
     public void addEdge(String parentId, String childId) {
         adjacency.computeIfAbsent(parentId, k -> new ArrayList<>(0)).add(childId);
     }
 
     /**
-     * 设置根节点 ID。幂等保护：仅在首次调用（rootId 为 null）时生效，
-     * 防止 DFS 递归中意外覆盖根节点。
+     * Sets the root node ID. Idempotent: only takes effect on the first call (when rootId is null)
+     * to prevent accidental overwriting during DFS recursion.
      */
     public void setRootId(String id) {
         if (this.rootId == null) {
@@ -89,22 +90,22 @@ public final class SnakeDigestGraph {
     }
 
     // -------------------------------------------------------------------------
-    // 读取接口（验证阶段调用）
+    // Read interface (called during the validation phase)
     // -------------------------------------------------------------------------
 
-    /** 返回根节点 ID，未设置时返回 null。 */
+    /** Returns the root node ID, or {@code null} if not yet set. */
     public String getRootId() {
         return rootId;
     }
 
-    /** 返回当前已注册的节点总数。 */
+    /** Returns the total number of currently registered nodes. */
     public int nodeCount() {
         return adjacency.size();
     }
 
     /**
-     * 返回指定节点的子节点列表（不可变视图，防止外部篡改）。
-     * 节点不存在或为叶子节点时返回空列表。
+     * Returns an unmodifiable view of the specified node’s child list (guards against external mutation).
+     * Returns an empty list when the node does not exist or is a leaf.
      */
     public List<String> getChildren(String nodeId) {
         List<String> children = adjacency.get(nodeId);
@@ -114,35 +115,35 @@ public final class SnakeDigestGraph {
     }
 
     /**
-     * 返回节点文本，节点不存在时返回空字符串。
+     * Returns the node’s text label, or an empty string if the node does not exist.
      */
     public String getLabel(String nodeId) {
         return labels.getOrDefault(nodeId, "");
     }
 
     /**
-     * 返回邻接表全部条目的不可变视图（用于 ID 唯一性检查等遍历场景）。
+     * Returns an unmodifiable view of all adjacency-list entries (for ID-uniqueness checks and traversal).
      */
     public Set<Map.Entry<String, List<String>>> adjacencyEntries() {
         return Collections.unmodifiableSet(adjacency.entrySet());
     }
 
     // -------------------------------------------------------------------------
-    // DFS 辅助工厂方法（按当前节点数预分配，避免 DFS 中途 rehash）
+    // DFS auxiliary factory methods (pre-sized to current node count to avoid mid-DFS rehash)
     // -------------------------------------------------------------------------
 
     /**
-     * 创建 DFS 三色标记 Map（WHITE / GRAY / BLACK）。
-     * 容量 = max(INITIAL_CAPACITY, nodeCount × 2)，
-     * 使装填率保持在 0.5 以下，DFS 全程无 rehash。
+     * Creates a DFS three-colour map (WHITE / GRAY / BLACK).
+     * Capacity = max(INITIAL_CAPACITY, nodeCount × 2), keeping load factor below 0.5
+     * so no rehash occurs during a full DFS traversal.
      */
     public Map<String, Integer> newColorMap() {
         return new HashMap<>(Math.max(INITIAL_CAPACITY, adjacency.size() * 2));
     }
 
     /**
-     * 创建 DFS 父节点记录 Map（用于发现环时重建完整路径）。
-     * 容量策略与 {@link #newColorMap()} 相同。
+     * Creates a DFS parent-tracking map (used to reconstruct the full cycle path when one is found).
+     * Uses the same capacity strategy as {@link #newColorMap()}.
      */
     public Map<String, String> newParentMap() {
         return new HashMap<>(Math.max(INITIAL_CAPACITY, adjacency.size() * 2));

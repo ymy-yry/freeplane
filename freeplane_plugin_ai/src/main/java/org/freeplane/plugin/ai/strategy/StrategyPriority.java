@@ -1,9 +1,9 @@
 package org.freeplane.plugin.ai.strategy;
 
 /**
- * 策略优先级常量
+ * Strategy priority constants.
  * 
- * <p>定义各类策略的优先级范围，确保策略选择的确定性。
+ * <p>Defines priority ranges for each strategy type to ensure deterministic strategy selection.
  * 
  * @author AI Plugin Team
  * @since 1.13.x
@@ -11,42 +11,42 @@ package org.freeplane.plugin.ai.strategy;
 public final class StrategyPriority {
     
     /**
-     * 核心优化策略（贪心+局部搜索）
-     * <p>优先级最高，适用于大多数场景
+     * Core optimisation strategy (greedy + local search).
+     * <p>Highest priority; suitable for the majority of scenarios.
      */
     public static final int GREEDY_OPTIMIZATION = 5;
     
     /**
-     * 区间动态规划策略
-     * <p>适用于兄弟节点批量处理优化
+     * Interval dynamic-programming strategy.
+     * <p>Suitable for batch processing of sibling nodes.
      */
     public static final int INTERVAL_DP = 10;
     
     /**
-     * 并查集+LCA优化策略
-     * <p>适用于消除重复工具调用
+     * Union-Find + LCA optimisation strategy.
+     * <p>Suitable for eliminating redundant tool calls.
      */
     public static final int UNION_FIND_LCA = 15;
     
     /**
-     * 完全背包动态规划策略
-     * <p>适用于资源约束下的最优工具选择
+     * Unbounded knapsack dynamic-programming strategy.
+     * <p>Suitable for optimal tool selection under resource constraints.
      */
     public static final int KNAPSACK_DP = 20;
     
     /**
-     * 容错降级策略
-     * <p>失败时触发
+     * Fault-tolerance / degraded fallback strategy.
+     * <p>Triggered on failure.
      */
     public static final int FALLBACK = 40;
     
     /**
-     * 兜底策略
-     * <p>优先级最低，当其他策略都不匹配时使用
+     * Last-resort fallback strategy.
+     * <p>Lowest priority; used when no other strategy matches.
      */
     public static final int DEFAULT = 100;
     
     private StrategyPriority() {
-        // 防止实例化
+        // prevent instantiation
     }
 }

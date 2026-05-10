@@ -6,30 +6,31 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 区间动态规划策略 - 优化兄弟节点批量处理
+ * Interval dynamic-programming strategy — optimises batch processing of sibling nodes.
  * 
- * <p>算法原理：
- * <p>对于同一父节点的兄弟节点序列，使用区间DP找到最优的批量处理方案。
+ * <p>Algorithm:
+ * <p>For a sequence of sibling nodes under the same parent, interval DP finds the optimal
+ * batch-processing plan.
  * 
- * <p>状态定义：
+ * <p>State definition:
  * <pre>
- * dp[i][j] = 处理兄弟节点区间 [i, j] 的最小复杂度
+ * dp[i][j] = minimum cost to process the sibling-node interval [i, j]
  * </pre>
  * 
- * <p>状态转移：
+ * <p>Recurrence:
  * <pre>
  * dp[i][j] = min{
- *   dp[i][k] + dp[k+1][j],           // 分割点 k
- *   cost(batchTool(i, j))            // 使用批量工具处理整个区间
+ *   dp[i][k] + dp[k+1][j],           // split point k
+ *   cost(batchTool(i, j))            // use batch tool for the entire interval
  * }
- * 其中 i ≤ k < j
+ * where i ≤ k < j
  * </pre>
  * 
- * <p>复杂度分析：
+ * <p>Complexity:
  * <ul>
- *   <li>时间复杂度：O(n³)，n为兄弟节点数</li>
- *   <li>空间复杂度：O(n²)</li>
- *   <li>适用规模：n ≤ 50</li>
+ *   <li>Time: O(n³), n = number of sibling nodes</li>
+ *   <li>Space: O(n²)</li>
+ *   <li>Practical limit: n ≤ 50</li>
  * </ul>
  * 
  * @author AI Plugin Team
@@ -41,12 +42,12 @@ public class IntervalDPStrategy implements ToolExecutionStrategy {
     
     @Override
     public boolean supports(String toolName, Map<String, Object> parameters) {
-        // 支持批量创建和批量编辑
+        // supports batch-create and batch-edit
         if (!"createNodes".equals(toolName) && !"edit".equals(toolName)) {
             return false;
         }
         
-        // 检查兄弟节点数量
+        // check sibling node count
         int siblingCount = getSiblingCount(parameters);
         return siblingCount >= 3 && siblingCount <= MAX_SIBLING_COUNT;
     }
@@ -58,23 +59,23 @@ public class IntervalDPStrategy implements ToolExecutionStrategy {
         List<SiblingNode> siblings = getSiblingNodes(parameters);
         int n = siblings.size();
         
-        // DP表：dp[i][j] 表示处理区间 [i, j] 的最小成本
+        // DP table: dp[i][j] = minimum cost to process interval [i, j]
         long[][] dp = new long[n][n];
         int[][] splitPoint = new int[n][n];
         
-        // 初始化：单个节点
+        // initialise: single node
         for (int i = 0; i < n; i++) {
             dp[i][i] = siblings.get(i).getIndividualCost();
-            splitPoint[i][i] = -1; // -1 表示不分割
+            splitPoint[i][i] = -1; // -1 = no split
         }
         
-        // 区间DP
-        for (int len = 2; len <= n; len++) {          // 区间长度
-            for (int i = 0; i <= n - len; i++) {      // 左端点
-                int j = i + len - 1;                   // 右端点
+        // interval DP
+        for (int len = 2; len <= n; len++) {          // interval length
+            for (int i = 0; i <= n - len; i++) {      // left endpoint
+                int j = i + len - 1;                   // right endpoint
                 dp[i][j] = Long.MAX_VALUE;
                 
-                // 枚举分割点
+                // enumerate split points
                 for (int k = i; k < j; k++) {
                     long cost = dp[i][k] + dp[k+1][j];
                     if (cost < dp[i][j]) {
@@ -83,22 +84,22 @@ public class IntervalDPStrategy implements ToolExecutionStrategy {
                     }
                 }
                 
-                // 尝试批量工具处理
+                // try batch-tool processing
                 long batchCost = computeBatchCost(siblings.subList(i, j+1));
                 if (batchCost < dp[i][j]) {
                     dp[i][j] = batchCost;
-                    splitPoint[i][j] = -2; // -2 表示批量处理
+                    splitPoint[i][j] = -2; // -2 = batch processing
                 }
             }
         }
         
-        // 回溯构建方案
+        // backtrack to build the plan
         List<BatchOperation> operations = reconstructSolution(siblings, splitPoint, 0, n-1);
         
         long elapsed = System.currentTimeMillis() - startTime;
         double totalCost = dp[0][n-1];
         
-        // 构建优化结果
+        // Build optimised result
         List<OptimizedToolCall.ToolCallStep> steps = buildToolCallSteps(operations, parameters);
         
         return new OptimizedToolCall(
@@ -120,28 +121,28 @@ public class IntervalDPStrategy implements ToolExecutionStrategy {
     }
     
     /**
-     * 计算批量处理成本
-     * <p>批量工具通常有折扣：cost = base_cost * log(n)
+     * Computes the cost of processing a set of nodes with the batch tool.
+     * <p>Batch tools typically offer a discount: cost = base_cost * log(n)
      */
     private long computeBatchCost(List<SiblingNode> nodes) {
         if (nodes.isEmpty()) {
             return 0;
         }
         
-        // 假设批量工具的基础成本是单个节点平均成本的 1.5 倍
+        // Assume the batch tool's base cost is 1.5× the average per-node cost
         long sumCost = 0;
         for (SiblingNode node : nodes) {
             sumCost += node.getIndividualCost();
         }
         long avgCost = sumCost / nodes.size();
         
-        // 批量折扣：log2(n)
+        // batch discount: log2(n)
         double discount = Math.log(nodes.size()) / Math.log(2);
         return (long) (avgCost * 1.5 * discount);
     }
     
     /**
-     * 回溯构建最优方案
+     * Backtracks through the split-point table to reconstruct the optimal plan.
      */
     private List<BatchOperation> reconstructSolution(
             List<SiblingNode> siblings, int[][] splitPoint, int i, int j) {
@@ -155,19 +156,19 @@ public class IntervalDPStrategy implements ToolExecutionStrategy {
         int split = splitPoint[i][j];
         
         if (split == -1) {
-            // 单个节点
+            // single node
             operations.add(new BatchOperation(
                 BatchOperation.Type.SINGLE,
                 siblings.subList(i, i+1)
             ));
         } else if (split == -2) {
-            // 批量处理
+            // batch processing
             operations.add(new BatchOperation(
                 BatchOperation.Type.BATCH,
                 siblings.subList(i, j+1)
             ));
         } else {
-            // 分割点：递归处理左右子区间
+            // split point: recursively handle left and right sub-intervals
             operations.addAll(reconstructSolution(siblings, splitPoint, i, split));
             operations.addAll(reconstructSolution(siblings, splitPoint, split+1, j));
         }
@@ -176,7 +177,7 @@ public class IntervalDPStrategy implements ToolExecutionStrategy {
     }
     
     /**
-     * 构建工具调用步骤
+     * Builds the tool-call step list.
      */
     private List<OptimizedToolCall.ToolCallStep> buildToolCallSteps(
             List<BatchOperation> operations, Map<String, Object> parameters) {
@@ -201,7 +202,7 @@ public class IntervalDPStrategy implements ToolExecutionStrategy {
         return steps;
     }
     
-    // ========== 辅助方法 ==========
+    // ========== Helper methods ==========
     
     private int getSiblingCount(Map<String, Object> parameters) {
         Object count = parameters.get("siblingCount");
@@ -225,9 +226,7 @@ public class IntervalDPStrategy implements ToolExecutionStrategy {
         return nodes;
     }
     
-    /**
-     * 兄弟节点
-     */
+    /** Sibling node. */
     public static class SiblingNode {
         private final String nodeId;
         private final long individualCost;
@@ -241,9 +240,7 @@ public class IntervalDPStrategy implements ToolExecutionStrategy {
         public long getIndividualCost() { return individualCost; }
     }
     
-    /**
-     * 批量操作
-     */
+    /** Batch operation. */
     public static class BatchOperation {
         public enum Type { SINGLE, BATCH }
         

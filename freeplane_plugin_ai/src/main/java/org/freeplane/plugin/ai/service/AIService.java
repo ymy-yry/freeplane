@@ -3,40 +3,40 @@ package org.freeplane.plugin.ai.service;
 import java.util.Map;
 
 /**
- * AI服务统一接口
- * 所有AI服务提供者必须实现此接口
+ * Unified AI service interface.
+ * All AI service providers must implement this interface.
  */
 public interface AIService {
-    
+
     /**
-     * 获取服务类型
-     * @return 服务类型
+     * Returns the service type.
+     * @return service type
      */
     AIServiceType getServiceType();
-    
+
     /**
-     * 获取服务名称
-     * @return 服务名称
+     * Returns the service name.
+     * @return service name
      */
     String getServiceName();
-    
+
     /**
-     * 处理请求
-     * @param request 请求参数
-     * @return 处理结果
+     * Processes a request.
+     * @param request request parameters
+     * @return processing result
      */
     AIServiceResponse processRequest(Map<String, Object> request);
-    
+
     /**
-     * 判断是否能处理该请求
-     * @param request 请求参数
-     * @return true表示能处理
+     * Returns whether this service can handle the given request.
+     * @param request request parameters
+     * @return true if this service can handle the request
      */
     boolean canHandle(Map<String, Object> request);
-    
+
     /**
-     * 获取服务优先级（数字越小优先级越高）
-     * @return 优先级
+     * Returns the service priority (lower number = higher priority).
+     * @return priority
      */
     default int getPriority() {
         return 100;

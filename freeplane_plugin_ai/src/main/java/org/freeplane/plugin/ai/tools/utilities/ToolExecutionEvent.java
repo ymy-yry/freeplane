@@ -1,22 +1,22 @@
 package org.freeplane.plugin.ai.tools.utilities;
 
 /**
- * 工具执行事件的不可变载体。
+ * Immutable carrier for tool execution events.
  *
- * <p>所有实现类均为 record（Java 16+），保证不可变语义和值比较。
+ * <p>All implementing types are records (Java 16+), guaranteeing immutability and value-based equality.
  */
 public sealed interface ToolExecutionEvent
         permits ToolExecutionBeforeEvent, ToolExecutionAfterEvent, ToolExecutionErrorEvent {
 
-    /** 工具名称 */
+    /** tool name */
     String toolName();
 
-    /** 原始参数字符串（JSON），执行前可用于预校验 */
+    /** raw argument string (JSON); available before execution for pre-validation */
     String rawArguments();
 
-    /** 调用来源（CHAT / MCP / etc.） */
+    /** call origin (CHAT / MCP / etc.) */
     ToolCaller toolCaller();
 
-    /** 事件时间戳（毫秒） */
+    /** event timestamp in milliseconds */
     long eventTimeMs();
 }

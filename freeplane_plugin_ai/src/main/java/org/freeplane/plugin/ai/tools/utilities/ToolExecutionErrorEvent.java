@@ -1,7 +1,7 @@
 package org.freeplane.plugin.ai.tools.utilities;
 
 /**
- * 工具执行失败事件。
+ * Event fired when a tool execution fails.
  */
 public record ToolExecutionErrorEvent(
         String toolName,

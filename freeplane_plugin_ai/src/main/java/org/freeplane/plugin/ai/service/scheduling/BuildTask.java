@@ -7,46 +7,46 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * 构建任务类 - 表示具有优先级和元数据的构建任务
+ * Build task - represents a build task with priority and metadata.
  */
 public class BuildTask {
-    // 任务ID
+    // task ID
     private final String id;
-    // 操作类型
+    // action type
     private final String action;
-    // 请求参数
+    // request parameters
     private final Map<String, Object> request;
-    // 创建时间
+    // creation timestamp
     private final long createdAt;
-    // 序列号
+    // sequence number
     private final long sequenceNumber;
-    // 基础优先级
+    // base priority
     private final int priority;
-    // 任务状态
+    // task status
     private TaskStatus status;
-    // 开始时间
+    // start timestamp
     private long startedAt;
-    // 完成时间
+    // completion timestamp
     private long completedAt;
-    // 优先级分数
+    // priority score
     private double priorityScore;
-    // 异步结果：调度器执行完任务后通过此 future 回传结调用方
+    // async result: the scheduler completes this future to return the result to the caller
     private final CompletableFuture<AIServiceResponse> future;
 
     /**
-     * 构造任务对象
-     * @param action 操作类型
-     * @param request 请求参数
+     * Constructs a task object.
+     * @param action action type
+     * @param request request parameters
      */
     public BuildTask(String action, Map<String, Object> request) {
         this(action, request, 0L);
     }
 
     /**
-     * 构造任务对象
-     * @param action 操作类型
-     * @param request 请求参数
-     * @param sequenceNumber 序列号
+     * Constructs a task object.
+     * @param action action type
+     * @param request request parameters
+     * @param sequenceNumber sequence number
      */
     public BuildTask(String action, Map<String, Object> request, long sequenceNumber) {
         this.id = UUID.randomUUID().toString();
@@ -61,9 +61,9 @@ public class BuildTask {
     }
 
     /**
-     * 计算基础优先级
-     * @param action 操作类型
-     * @return 基础优先级 (1-5)
+     * Calculates the base priority for an action.
+     * @param action action type
+     * @return base priority (1-5)
      */
     private int calculateBasePriority(String action) {
         switch (action) {
@@ -112,8 +112,8 @@ public class BuildTask {
     }
 
     /**
-     * 设置任务状态
-     * @param status 任务状态
+     * Sets the task status.
+     * @param status task status
      */
     public void setStatus(TaskStatus status) {
         this.status = status;
@@ -141,7 +141,7 @@ public class BuildTask {
     }
 
     /**
-     * 获取异步结果 Future。调用方可通过 future.get(timeout) 等待任务完成。
+     * Returns the async result Future. Callers can wait for completion via future.get(timeout).
      * @return CompletableFuture
      */
     public CompletableFuture<AIServiceResponse> getFuture() {
@@ -149,8 +149,8 @@ public class BuildTask {
     }
 
     /**
-     * 获取任务等待时间
-     * @return 等待时间（毫秒）
+     * Returns the time the task has been waiting.
+     * @return wait time in milliseconds
      */
     public long getWaitTime() {
         if (status == TaskStatus.PENDING) {
@@ -163,8 +163,8 @@ public class BuildTask {
     }
 
     /**
-     * 获取任务执行时间
-     * @return 执行时间（毫秒）
+     * Returns the task execution time.
+     * @return execution time in milliseconds
      */
     public long getExecutionTime() {
         if (status == TaskStatus.COMPLETED) {
@@ -188,13 +188,13 @@ public class BuildTask {
     }
 
     /**
-     * 任务状态枚举
+     * Task status enum.
      */
     public enum TaskStatus {
-        PENDING,    // 待处理
-        RUNNING,    // 运行中
-        COMPLETED,  // 已完成
-        FAILED,     // 失败
-        CANCELLED   // 已取消（队列满、超时、主动取消）
+        PENDING,    // waiting to be executed
+        RUNNING,    // currently executing
+        COMPLETED,  // finished successfully
+        FAILED,     // execution failed
+        CANCELLED   // cancelled (queue full, timeout, or explicit cancellation)
     }
 }

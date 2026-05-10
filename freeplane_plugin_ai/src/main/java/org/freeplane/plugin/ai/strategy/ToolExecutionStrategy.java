@@ -3,16 +3,17 @@ package org.freeplane.plugin.ai.strategy;
 import java.util.Map;
 
 /**
- * 工具执行策略接口
+ * Tool execution strategy interface.
  * 
- * <p>策略者模式核心接口，定义不同工具执行策略的统一契约。
- * 每个策略根据参数特征决定是否支持该请求，并执行相应的优化算法。
+ * <p>Core interface of the Strategy pattern, defining a unified contract for different
+ * tool execution strategies. Each strategy decides whether it supports the given request
+ * based on parameter characteristics, and then executes the corresponding optimisation algorithm.
  * 
- * <p>设计原则：
+ * <p>Design principles:
  * <ul>
- *   <li>开闭原则：对扩展开放（新增策略），对修改封闭（不改动现有代码）</li>
- *   <li>单一职责：每个策略只负责一种优化场景</li>
- *   <li>依赖倒置：高层模块依赖此接口，而非具体实现</li>
+ *   <li>Open/Closed Principle: open for extension (add new strategies), closed for modification</li>
+ *   <li>Single Responsibility: each strategy handles exactly one optimisation scenario</li>
+ *   <li>Dependency Inversion: higher-level modules depend on this interface, not concrete implementations</li>
  * </ul>
  * 
  * @author AI Plugin Team
@@ -21,43 +22,43 @@ import java.util.Map;
 public interface ToolExecutionStrategy {
     
     /**
-     * 判断该策略是否支持当前工具调用请求
+     * Returns {@code true} if this strategy supports the current tool-call request.
      * 
-     * @param toolName 工具名称（如 "createNodes", "edit"）
-     * @param parameters 工具调用参数
-     * @return true 表示该策略可以处理此请求
+     * @param toolName   the tool name (e.g. "createNodes", "edit")
+     * @param parameters the tool-call parameters
+     * @return {@code true} if this strategy can handle the request
      */
     boolean supports(String toolName, Map<String, Object> parameters);
     
     /**
-     * 执行策略优化逻辑
+     * Executes the strategy optimisation logic.
      * 
-     * @param toolName 工具名称
-     * @param parameters 工具调用参数
-     * @return 优化后的工具调用方案
+     * @param toolName   the tool name
+     * @param parameters the tool-call parameters
+     * @return the optimised tool-call plan
      */
     Object execute(String toolName, Map<String, Object> parameters);
     
     /**
-     * 获取策略优先级（数值越小优先级越高）
+     * Returns the strategy priority (lower value = higher priority).
      * 
-     * <p>优先级建议：
+     * <p>Recommended ranges:
      * <ul>
-     *   <li>1-10: 核心业务策略（如贪心算法）</li>
-     *   <li>11-20: 辅助业务策略（如区间DP）</li>
-     *   <li>21-30: 优化策略（如并查集+LCA）</li>
-     *   <li>31-40: 容错策略（如降级处理）</li>
-     *   <li>90-100: 兜底策略</li>
+     *   <li>1–10: core business strategies (e.g. greedy)</li>
+     *   <li>11–20: auxiliary business strategies (e.g. interval DP)</li>
+     *   <li>21–30: optimisation strategies (e.g. Union-Find + LCA)</li>
+     *   <li>31–40: fault-tolerance / fallback strategies</li>
+     *   <li>90–100: last-resort fallback strategies</li>
      * </ul>
      * 
-     * @return 优先级数值
+     * @return the priority value
      */
     int getPriority();
     
     /**
-     * 获取策略名称（用于日志和监控）
+     * Returns the strategy name (used for logging and monitoring).
      * 
-     * @return 策略名称
+     * @return the strategy name
      */
     String getStrategyName();
 }

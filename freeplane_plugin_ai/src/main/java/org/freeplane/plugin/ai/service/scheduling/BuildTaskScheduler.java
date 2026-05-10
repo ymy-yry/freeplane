@@ -7,37 +7,37 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 构建任务调度器 - 主要调度器，负责任务排队和选择逻辑
+ * Build task scheduler - primary scheduler responsible for task queuing and selection logic.
  */
 public class BuildTaskScheduler {
-    // 单例实例
+    // singleton instance
     private static volatile BuildTaskScheduler instance;
 
-    // 任务队列 - 使用 LinkedBlockingQueue 而不是 PriorityBlockingQueue，
-    // 因为我们需要基于 TopP 动态选择任务
+    // task queue - LinkedBlockingQueue instead of PriorityBlockingQueue
+    // because we need dynamic TopP-based task selection
     private final BlockingQueue<BuildTask> taskQueue;
-    // 运行中的任务
+    // currently running tasks
     private final Set<BuildTask> runningTasks;
-    // 执行线程池（内部暴露以使 BuildTaskExecutor 复用）
+    // executor thread pool (exposed internally for BuildTaskExecutor reuse)
     private final ExecutorService executorService;
-    // 调度线程池
+    // scheduler thread pool
     private final ScheduledExecutorService schedulerService;
-    // 调度配置
+    // scheduling configuration
     private final SchedulingConfig config;
-    // 任务执行器
+    // task executor
     private final BuildTaskExecutor taskExecutor;
-    // 随机数生成器
+    // random number generator
     private final Random random;
-    // 任务超时（秒）：AI 操作耗时较长，默认 120 秒
+    // task timeout in seconds: AI operations take longer, default 120 s
     private static final long TASK_TIMEOUT_SECONDS = 120;
 
-    // 运行状态
+    // running state
     private volatile boolean running;
-    // 任务计数器
+    // task counter
     private final AtomicLong taskCounter;
 
     /**
-     * 私有构造函数 - 初始化调度器组件
+     * Private constructor - initializes scheduler components.
      */
     private BuildTaskScheduler() {
         this.taskQueue = new LinkedBlockingQueue<>(100);
@@ -54,8 +54,8 @@ public class BuildTaskScheduler {
     }
 
     /**
-     * 获取调度器单例实例
-     * @return 调度器实例
+     * Returns the scheduler singleton instance.
+     * @return scheduler instance
      */
     public static BuildTaskScheduler getInstance() {
         if (instance == null) {
@@ -69,7 +69,7 @@ public class BuildTaskScheduler {
     }
 
     /**
-     * 重置调度器实例
+     * Resets the scheduler singleton instance.
      */
     public static void resetInstance() {
         synchronized (BuildTaskScheduler.class) {
@@ -81,18 +81,18 @@ public class BuildTaskScheduler {
     }
 
     /**
-     * 启动调度器
+     * Starts the scheduler.
      */
     public void start() {
         if (!running) {
             running = true;
             schedulerService.scheduleWithFixedDelay(this::processTasks, 0, 100, TimeUnit.MILLISECONDS);
-            LogUtils.info("BuildTaskScheduler: 启动，配置: temperature=" + config.getTemperature() + ", topP=" + config.getTopP());
+            LogUtils.info("BuildTaskScheduler: started, config: temperature=" + config.getTemperature() + ", topP=" + config.getTopP());
         }
     }
 
     /**
-     * 停止调度器
+     * Stops the scheduler.
      */
     public void stop() {
         running = false;
@@ -110,31 +110,31 @@ public class BuildTaskScheduler {
             executorService.shutdownNow();
             Thread.currentThread().interrupt();
         }
-        LogUtils.info("BuildTaskScheduler: 停止");
+        LogUtils.info("BuildTaskScheduler: stopped");
     }
 
     /**
-     * 提交任务到调度器
-     * @param action 操作类型
-     * @param request 请求参数
-     * @return 任务对象，队列满时返回状态为 CANCELLED 的任务
+     * Submits a task to the scheduler.
+     * @param action action type
+     * @param request request parameters
+     * @return the task object; if the queue is full, returns a task with CANCELLED status
      */
     public BuildTask submitTask(String action, Map<String, Object> request) {
         BuildTask task = new BuildTask(action, request, taskCounter.incrementAndGet());
         boolean offered = taskQueue.offer(task);
         if (offered) {
-            LogUtils.info("BuildTaskScheduler: 提交任务: " + task.getId() + ", action: " + action + ", queueSize: " + taskQueue.size());
+            LogUtils.info("BuildTaskScheduler: task submitted: " + task.getId() + ", action: " + action + ", queueSize: " + taskQueue.size());
         } else {
-            // 队列已满：标记为 CANCELLED 并通过 future 返回错误，而非静默丢弃
+            // queue full: mark as CANCELLED and surface error via future instead of silently dropping
             task.setStatus(BuildTask.TaskStatus.CANCELLED);
-            task.getFuture().complete(org.freeplane.plugin.ai.service.AIServiceResponse.error("调度器队列已满，请稍后重试"));
-            LogUtils.warn("BuildTaskScheduler: 提交任务失败，队列已满");
+            task.getFuture().complete(org.freeplane.plugin.ai.service.AIServiceResponse.error("Scheduler queue is full, please retry later"));
+            LogUtils.warn("BuildTaskScheduler: task submission failed, queue is full");
         }
         return task;
     }
 
     /**
-     * 处理任务队列 - 使用调度算法选择任务
+     * Processes the task queue - selects a task using the scheduling algorithm.
      */
     private void processTasks() {
         if (!running) {
@@ -149,7 +149,7 @@ public class BuildTaskScheduler {
             return;
         }
 
-        // 使用调度算法选择任务
+        // select the next task using the scheduling algorithm
         BuildTask nextTask = selectNextTask();
         if (nextTask == null) {
             return;
@@ -164,46 +164,46 @@ public class BuildTaskScheduler {
         executorService.submit(() -> {
             try {
                 nextTask.setStatus(BuildTask.TaskStatus.RUNNING);
-                LogUtils.info("BuildTaskScheduler: 开始执行任务: " + nextTask.getId());
+                LogUtils.info("BuildTaskScheduler: executing task: " + nextTask.getId());
 
                 taskExecutor.executeTask(nextTask);
 
                 nextTask.setStatus(BuildTask.TaskStatus.COMPLETED);
-                LogUtils.info("BuildTaskScheduler: 任务完成: " + nextTask.getId());
+                LogUtils.info("BuildTaskScheduler: task completed: " + nextTask.getId());
             } catch (Exception e) {
                 nextTask.setStatus(BuildTask.TaskStatus.FAILED);
                 if (!nextTask.getFuture().isDone()) {
                     nextTask.getFuture().complete(
-                        org.freeplane.plugin.ai.service.AIServiceResponse.error("任务执行失败: " + e.getMessage()));
+                        org.freeplane.plugin.ai.service.AIServiceResponse.error("Task execution failed: " + e.getMessage()));
                 }
-                LogUtils.warn("BuildTaskScheduler: 任务失败: " + nextTask.getId(), e);
+                LogUtils.warn("BuildTaskScheduler: task failed: " + nextTask.getId(), e);
             } finally {
                 runningTasks.remove(nextTask);
             }
         });
 
-        // 超时看门狗：若 TASK_TIMEOUT_SECONDS 秒内 future 仍未完成，则强制终止
+        // timeout watchdog: forcefully terminate the task if future is not done within TASK_TIMEOUT_SECONDS
         schedulerService.schedule(() -> {
             if (!nextTask.getFuture().isDone()) {
                 nextTask.setStatus(BuildTask.TaskStatus.FAILED);
                 nextTask.getFuture().complete(
-                    org.freeplane.plugin.ai.service.AIServiceResponse.error("任务超时（" + TASK_TIMEOUT_SECONDS + "秒）"));
+                    org.freeplane.plugin.ai.service.AIServiceResponse.error("Task timed out (" + TASK_TIMEOUT_SECONDS + "s)"));
                 runningTasks.remove(nextTask);
-                LogUtils.warn("BuildTaskScheduler: 任务超时并被强制终止: " + nextTask.getId());
+                LogUtils.warn("BuildTaskScheduler: task timed out and was forcefully terminated: " + nextTask.getId());
             }
         }, TASK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     /**
-     * 使用调度算法选择下一个要执行的任务
-     * @return 选中的任务，如果没有可用任务返回 null
+     * Selects the next task to execute using the scheduling algorithm.
+     * @return the selected task, or null if no tasks are available
      */
     private BuildTask selectNextTask() {
         if (taskQueue.isEmpty()) {
             return null;
         }
 
-        // 获取所有待处理任务
+        // drain all pending tasks from the queue
         List<BuildTask> pendingTasks = new ArrayList<>();
         int drainCount = taskQueue.drainTo(pendingTasks);
         
@@ -211,10 +211,10 @@ public class BuildTaskScheduler {
             return null;
         }
 
-        // 使用 TopP 选择算法选择任务
+        // select a task using the TopP selection algorithm
         BuildTask selectedTask = selectTaskByTopP(pendingTasks);
-        
-        // 将未选中的任务放回队列
+
+        // put unselected tasks back into the queue
         if (selectedTask != null) {
             pendingTasks.remove(selectedTask);
             for (BuildTask task : pendingTasks) {
@@ -226,57 +226,57 @@ public class BuildTaskScheduler {
     }
 
     /**
-     * 获取内部执行线程池（供 BuildTaskExecutor 复用）
-     * @return 执行线程池
+     * Returns the internal executor thread pool (for reuse by BuildTaskExecutor).
+     * @return executor thread pool
      */
     public ExecutorService getExecutorService() {
         return executorService;
     }
 
     /**
-     * 获取队列大小
-     * @return 队列大小
+     * Returns the current queue size.
+     * @return queue size
      */
     public int getQueueSize() {
         return taskQueue.size();
     }
 
     /**
-     * 获取运行中任务数量
-     * @return 运行中任务数量
+     * Returns the number of currently running tasks.
+     * @return running task count
      */
     public int getRunningTaskCount() {
         return runningTasks.size();
     }
 
     /**
-     * 获取待处理任务列表
-     * @return 待处理任务列表
+     * Returns the list of pending tasks.
+     * @return pending task list
      */
     public List<BuildTask> getPendingTasks() {
         return new ArrayList<>(taskQueue);
     }
 
     /**
-     * 获取运行中任务列表
-     * @return 运行中任务列表
+     * Returns the list of currently running tasks.
+     * @return running task list
      */
     public List<BuildTask> getRunningTasks() {
         return new ArrayList<>(runningTasks);
     }
 
     /**
-     * 清空任务队列
+     * Clears the task queue.
      */
     public void clearQueue() {
         taskQueue.clear();
-        LogUtils.info("BuildTaskScheduler: 队列已清空");
+        LogUtils.info("BuildTaskScheduler: queue cleared");
     }
 
     /**
-     * 计算任务优先级 - 不输出调试日志以提高性能
-     * @param task 任务对象
-     * @return 优先级分数
+     * Calculates the task priority score - no debug logging for performance.
+     * @param task the task object
+     * @return priority score
      */
     private double calculateTaskPriority(BuildTask task) {
         double temperature = config.getTemperature();
@@ -293,9 +293,10 @@ public class BuildTaskScheduler {
     }
 
     /**
-     * 使用TopP选择任务 - 每个任务只计算一次优先级分数，保证排序与采样一致性
-     * @param tasks 任务列表
-     * @return 选中的任务
+     * Selects a task using TopP sampling - each task's priority is computed once to ensure
+     * consistency between sorting and sampling.
+     * @param tasks list of candidate tasks
+     * @return the selected task
      */
     public BuildTask selectTaskByTopP(List<BuildTask> tasks) {
         if (tasks == null || tasks.isEmpty()) {
@@ -304,26 +305,26 @@ public class BuildTaskScheduler {
 
         double topP = config.getTopP();
 
-        // 每个任务只计算一次优先级分数，避免多次调用产生不一致的随机值
+        // compute each task's priority score once to avoid inconsistent random values across calls
         Map<BuildTask, Double> scoreCache = new java.util.IdentityHashMap<>();
         for (BuildTask task : tasks) {
             scoreCache.put(task, calculateTaskPriority(task));
         }
 
-        // 按缓存分数降序排序（比较器使用固定分数，满足传递性）
+        // sort by cached score descending (comparator uses fixed scores, satisfies transitivity)
         tasks.sort((t1, t2) -> Double.compare(scoreCache.get(t2), scoreCache.get(t1)));
 
         if (topP >= 1.0 || tasks.size() == 1) {
             return tasks.get(0);
         }
 
-        // 计算候选集大小
+        // compute nucleus size
         int nucleusSize = Math.max(1, (int) Math.ceil(tasks.size() * topP));
         nucleusSize = Math.min(nucleusSize, tasks.size());
 
         List<BuildTask> nucleusTasks = tasks.subList(0, nucleusSize);
 
-        // 计算候选集中任务的优先级总和（使用缓存分数）
+        // compute the total priority score of the nucleus (using cached scores)
         double totalScore = 0;
         for (BuildTask task : nucleusTasks) {
             totalScore += scoreCache.get(task);
@@ -333,7 +334,7 @@ public class BuildTaskScheduler {
             return nucleusTasks.get(0);
         }
 
-        // 使用随机数从候选集中按比例采样（使用缓存分数，结果与排序一致）
+        // proportionally sample from the nucleus using a random value (cached scores, consistent with sort)
         double randomValue = random.nextDouble() * totalScore;
         double cumulative = 0;
 
@@ -344,13 +345,13 @@ public class BuildTaskScheduler {
             }
         }
 
-        // 兜底返回第一个任务
+        // fallback: return the first task
         return nucleusTasks.get(0);
     }
 
     /**
-     * 获取调度器运行状态
-     * @return 是否运行中
+     * Returns whether the scheduler is currently running.
+     * @return true if running
      */
     public boolean isRunning() {
         return running;

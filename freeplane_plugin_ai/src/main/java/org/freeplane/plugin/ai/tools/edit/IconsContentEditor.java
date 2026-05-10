@@ -54,16 +54,6 @@ public class IconsContentEditor {
 
     public void editExistingIconsContent(NodeModel nodeModel, EditOperation operation, String targetKey, Integer index,
                                          String value) {
-        processExistingIconsContent(nodeModel, operation, targetKey, index, value, false);
-    }
-
-    public void validateExistingIconsContent(NodeModel nodeModel, EditOperation operation, String targetKey,
-                                             Integer index, String value) {
-        processExistingIconsContent(nodeModel, operation, targetKey, index, value, true);
-    }
-
-    private void processExistingIconsContent(NodeModel nodeModel, EditOperation operation, String targetKey,
-                                             Integer index, String value, boolean dryRun) {
         if (nodeModel == null) {
             throw new IllegalArgumentException("Missing node model.");
         }
@@ -75,18 +65,14 @@ public class IconsContentEditor {
                 if (addedIcon == null) {
                     throw new IllegalArgumentException("Unknown icon description: " + value);
                 }
-                if (!dryRun) {
-                    iconController.addIcon(nodeModel, addedIcon);
-                }
+                iconController.addIcon(nodeModel, addedIcon);
                 break;
             case DELETE:
                 int deleteIndex = findIconIndex(icons, targetKey, index);
                 if (deleteIndex < 0) {
                     throw new IllegalArgumentException("Invalid icon index for delete.");
                 }
-                if (!dryRun) {
-                    iconController.removeIcon(nodeModel, deleteIndex);
-                }
+                iconController.removeIcon(nodeModel, deleteIndex);
                 break;
             case REPLACE:
                 int replaceIndex = findIconIndex(icons, targetKey, index);
@@ -97,10 +83,8 @@ public class IconsContentEditor {
                 if (replacementIcon == null) {
                     throw new IllegalArgumentException("Unknown icon description: " + value);
                 }
-                if (!dryRun) {
-                    iconController.removeIcon(nodeModel, replaceIndex);
-                    iconController.addIcon(nodeModel, replacementIcon);
-                }
+                iconController.removeIcon(nodeModel, replaceIndex);
+                iconController.addIcon(nodeModel, replacementIcon);
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported icon operation: " + resolvedOperation);

@@ -11,11 +11,11 @@ import java.util.Objects;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * JSON Schema 转换器工厂（工厂方法模式的聚合入口）。
+ * Factory for JSON Schema converters (aggregate entry point of the Factory Method pattern).
  *
- * <p>持有所有 {@link JsonSchemaConverter} 实现，按注册顺序匹配 {@code supports}，
- * 找到首个支持的转换器执行转换。新增 Schema 类型只需添加新的 Converter 并注册，
- * 无需修改此工厂或其他转换器（开闭原则）。
+ * <p>Holds all {@link JsonSchemaConverter} implementations and matches them in registration
+ * order via {@code supports}. To add a new Schema type, simply add a new Converter and
+ * register it here — no changes to this factory or other converters are needed (Open/Closed Principle).
  */
 class JsonSchemaConverterFactory {
 
@@ -24,7 +24,7 @@ class JsonSchemaConverterFactory {
     JsonSchemaConverterFactory(ObjectMapper objectMapper) {
         Objects.requireNonNull(objectMapper, "objectMapper");
         List<JsonSchemaConverter<? extends JsonSchemaElement>> list = new ArrayList<>();
-        // 注册顺序：复合类型优先（避免被原始类型误匹配），原始类型次之
+        // Registration order: composite types first (to avoid mismatching with primitive converters), then primitives
         list.add(new JsonObjectSchemaConverter());
         list.add(new JsonArraySchemaConverter());
         list.add(new JsonAnyOfSchemaConverter());
@@ -35,7 +35,7 @@ class JsonSchemaConverterFactory {
     }
 
     /**
-     * 将 JsonSchemaElement 递归转换为 Map 表示。
+     * Recursively converts a {@link JsonSchemaElement} to its {@code Map} representation.
      */
     Map<String, Object> convert(JsonSchemaElement element) {
         Objects.requireNonNull(element, "element");

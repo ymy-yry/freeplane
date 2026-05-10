@@ -34,7 +34,7 @@ public class ToolExecutorFactory {
     }
 
     /**
-     * 完整构造函数，支持注入观察者和自定义调用来源。
+     * Full constructor supporting injected observers and a custom tool caller origin.
      */
     public ToolExecutorFactory(boolean wrapToolArgumentsExceptions,
                                boolean propagateToolExecutionExceptions,

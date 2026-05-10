@@ -6,10 +6,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * 工具调用性能统计观察者。
- *
- * <p>记录每个工具的调用次数、总耗时、平均耗时和错误次数，
- * 为性能优化和容量规划提供数据支撑。
+ * Observer that collects per-tool call counts, total elapsed time, average elapsed time, and error counts
+ * to support performance analysis and capacity planning.
  */
 public class ToolCallMetricsObserver implements ToolExecutionObserver {
 
@@ -26,12 +24,12 @@ public class ToolCallMetricsObserver implements ToolExecutionObserver {
     @Override
     public void onError(ToolExecutionErrorEvent event) {
         errorCounts.computeIfAbsent(event.toolName(), k -> new LongAdder()).increment();
-        // 失败也算一次调用
+        // errors count as a call too
         callCounts.computeIfAbsent(event.toolName(), k -> new LongAdder()).increment();
         totalElapsedMs.computeIfAbsent(event.toolName(), k -> new LongAdder()).add(event.elapsedMs());
     }
 
-    /** 返回每个工具的平均耗时（毫秒），未调用过的工具不返回。 */
+    /** Returns the average elapsed time (ms) per tool; tools never called are excluded. */
     public Map<String, Long> getAverageElapsedMs() {
         ConcurrentHashMap<String, Long> result = new ConcurrentHashMap<>();
         for (Map.Entry<String, LongAdder> entry : callCounts.entrySet()) {
@@ -45,7 +43,7 @@ public class ToolCallMetricsObserver implements ToolExecutionObserver {
         return Collections.unmodifiableMap(result);
     }
 
-    /** 返回每个工具的调用次数。 */
+    /** Returns the call count per tool. */
     public Map<String, Long> getCallCounts() {
         ConcurrentHashMap<String, Long> result = new ConcurrentHashMap<>();
         for (Map.Entry<String, LongAdder> entry : callCounts.entrySet()) {
@@ -54,7 +52,7 @@ public class ToolCallMetricsObserver implements ToolExecutionObserver {
         return Collections.unmodifiableMap(result);
     }
 
-    /** 返回每个工具的错误次数。 */
+    /** Returns the error count per tool. */
     public Map<String, Long> getErrorCounts() {
         ConcurrentHashMap<String, Long> result = new ConcurrentHashMap<>();
         for (Map.Entry<String, LongAdder> entry : errorCounts.entrySet()) {
@@ -63,7 +61,7 @@ public class ToolCallMetricsObserver implements ToolExecutionObserver {
         return Collections.unmodifiableMap(result);
     }
 
-    /** 重置所有统计。 */
+    /** Resets all statistics. */
     public void reset() {
         callCounts.clear();
         totalElapsedMs.clear();

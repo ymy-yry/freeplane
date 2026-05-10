@@ -1,18 +1,18 @@
 package org.freeplane.plugin.ai.service;
 
 /**
- * AI服务类型枚举
+ * AI service type enum.
  */
 public enum AIServiceType {
     /**
-     * 智能问答服务
+     * Intelligent Q&A service.
      */
-    CHAT("chat", "智能问答"),
-    
+    CHAT("chat", "Chat"),
+
     /**
-     * 智能体服务（如思维导图生成、节点扩展等）
+     * Agent service (e.g. mind map generation, node expansion).
      */
-    AGENT("agent", "智能体");
+    AGENT("agent", "Agent");
     
     private final String code;
     private final String name;

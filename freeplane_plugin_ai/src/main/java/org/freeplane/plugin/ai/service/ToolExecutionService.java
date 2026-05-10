@@ -5,41 +5,41 @@ import org.freeplane.plugin.ai.tools.AIToolSet;
 import java.util.Map;
 
 /**
- * 工具执行服务接口
- * 提供直接的工具调用能力，绕过 LLM 聊天环节
+ * Tool execution service interface.
+ * Provides direct tool invocation capability, bypassing the LLM chat stage.
  */
 public interface ToolExecutionService {
 
     /**
-     * 执行工具调用
-     * @param toolName 工具名称
-     * @param parameters 工具参数
-     * @return 执行结果
+     * Executes a tool call.
+     * @param toolName the name of the tool
+     * @param parameters tool parameters
+     * @return execution result
      */
     Object executeTool(String toolName, Map<String, Object> parameters);
 
     /**
-     * 获取支持的工具列表
-     * @return 工具名称列表
+     * Returns the list of supported tools.
+     * @return array of tool names
      */
     String[] getSupportedTools();
 
     /**
-     * 检查工具是否支持
-     * @param toolName 工具名称
-     * @return 是否支持
+     * Checks whether a tool is supported.
+     * @param toolName the name of the tool
+     * @return true if supported
      */
     boolean isToolSupported(String toolName);
 
     /**
-     * 设置 AIToolSet 实例
-     * @param toolSet AIToolSet 实例
+     * Sets the AIToolSet instance.
+     * @param toolSet AIToolSet instance
      */
     void setToolSet(AIToolSet toolSet);
 
     /**
-     * 获取 AIToolSet 实例
-     * @return AIToolSet 实例
+     * Returns the AIToolSet instance.
+     * @return AIToolSet instance
      */
     AIToolSet getToolSet();
 }

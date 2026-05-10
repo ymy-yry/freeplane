@@ -8,10 +8,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * 参数预校验观察者。
+ * Pre-execution argument validation observer.
  *
- * <p>在工具执行前利用 ToolSchemaIndex 中的 Schema 对参数进行 JSON Schema 级别的验证，
- * 在进入 EDT（事件分发线程）前拦截非法参数，避免复杂的回滚逻辑。
+ * <p>Uses the {@link ToolSchemaIndex} to perform JSON-Schema-level validation of tool arguments
+ * before execution reaches the EDT (Event Dispatch Thread), preventing complex rollback logic.
  */
 public class SchemaValidationObserver implements ToolExecutionObserver {
 
@@ -30,7 +30,7 @@ public class SchemaValidationObserver implements ToolExecutionObserver {
         }
         ModelContextProtocolTool tool = schemaIndex.get(event.toolName());
         if (tool == null) {
-            return; // 工具不在索引中（可能未启用 Schema 缓存），跳过
+            return; // tool not in index (schema cache may be disabled), skip validation
         }
 
         String rawArgs = event.rawArguments();
@@ -50,8 +50,8 @@ public class SchemaValidationObserver implements ToolExecutionObserver {
     }
 
     /**
-     * 基础验证：检查 JSON Schema 中 required 字段的缺失。
-     * 完整 JSON Schema 验证可后续引入 networknt/json-schema-validator 等库。
+     * Basic validation: checks for missing required fields declared in the JSON Schema.
+     * Full JSON Schema validation can be added later via a library like networknt/json-schema-validator.
      */
     @SuppressWarnings("unchecked")
     private void validateRequiredFields(ModelContextProtocolTool tool, JsonNode argsNode) {

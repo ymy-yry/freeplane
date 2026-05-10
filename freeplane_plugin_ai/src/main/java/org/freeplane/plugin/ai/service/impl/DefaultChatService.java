@@ -82,7 +82,7 @@ public class DefaultChatService implements AIService {
                             LogUtils.warn("DefaultChatService: No AI provider configured");
                             return;
                         }
-                        // 如果用户未选择模型，自动选择第一个可用 provider 的默认模型
+                        // if the user has not selected a model, auto-select the default model of the first available provider
                         autoSelectModelIfNeeded(configuration);
 
                         availableMaps = new AvailableMaps(new ControllerMapModelProvider());
@@ -127,9 +127,9 @@ public class DefaultChatService implements AIService {
     private void autoSelectModelIfNeeded(AIProviderConfiguration configuration) {
         String selected = configuration.getSelectedModelValue();
         if (selected != null && !selected.trim().isEmpty()) {
-            return; // 已有选择，无需自动
+            return; // already selected, no auto-selection needed
         }
-        // 按优先度顺序选择：ernie > dashscope > openrouter > gemini > ollama
+        // select in priority order: ernie > dashscope > openrouter > gemini > ollama
         String providerName = null;
         String modelName = null;
         if (configuration.hasErnieKey()) {

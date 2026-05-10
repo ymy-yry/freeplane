@@ -5,16 +5,16 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * 思维导图验证结果
+ * Mind-map validation result.
  */
 public class MindMapValidationResult {
 
     public enum ValidationStatus {
-        /** 验证通过 */
+        /** Validation passed. */
         VALID,
-        /** 验证失败 - 有错误 */
+        /** Validation failed — has errors. */
         INVALID,
-        /** 验证警告 - 有问题但不影响使用 */
+        /** Validation warning — issues found but map is still usable. */
         WARNING
     }
 
@@ -103,35 +103,35 @@ public class MindMapValidationResult {
 
     public String getSummary() {
         StringBuilder sb = new StringBuilder();
-        sb.append("验证结果: ").append(status).append("\n");
+        sb.append("Validation result: ").append(status).append("\n");
 
         if (!errors.isEmpty()) {
-            sb.append("错误 (").append(errors.size()).append("):\n");
+            sb.append("Errors (").append(errors.size()).append("):\n");
             for (ValidationError error : errors) {
                 sb.append("  [").append(error.getCode()).append("] ");
                 if (error.getNodeId() != null) {
-                    sb.append("节点(").append(error.getNodeId()).append("): ");
+                    sb.append("node(").append(error.getNodeId()).append("): ");
                 }
                 sb.append(error.getMessage()).append("\n");
             }
         }
 
         if (!warnings.isEmpty()) {
-            sb.append("警告 (").append(warnings.size()).append("):\n");
+            sb.append("Warnings (").append(warnings.size()).append("):\n");
             for (ValidationWarning warning : warnings) {
                 sb.append("  [").append(warning.getCode()).append("] ");
                 if (warning.getNodeId() != null) {
-                    sb.append("节点(").append(warning.getNodeId()).append("): ");
+                    sb.append("node(").append(warning.getNodeId()).append("): ");
                 }
                 sb.append(warning.getMessage()).append("\n");
             }
         }
 
         if (statistics != null) {
-            sb.append("统计:\n");
-            sb.append("  总节点数: ").append(statistics.getTotalNodes()).append("\n");
-            sb.append("  最大深度: ").append(statistics.getMaxDepth()).append("\n");
-            sb.append("  平均子节点数: ").append(String.format("%.2f", statistics.getAverageChildrenPerNode())).append("\n");
+            sb.append("Statistics:\n");
+            sb.append("  Total nodes: ").append(statistics.getTotalNodes()).append("\n");
+            sb.append("  Max depth: ").append(statistics.getMaxDepth()).append("\n");
+            sb.append("  Avg children/node: ").append(String.format("%.2f", statistics.getAverageChildrenPerNode())).append("\n");
         }
 
         return sb.toString();
@@ -141,7 +141,7 @@ public class MindMapValidationResult {
     // Inner types
     // -------------------------------------------------------------------------
 
-    /** 验证错误 */
+    /** Validation error. */
     public static class ValidationError {
         private final String code;
         private final String message;
@@ -162,7 +162,7 @@ public class MindMapValidationResult {
         public String getNodeId() { return nodeId; }
     }
 
-    /** 验证警告 */
+    /** Validation warning. */
     public static class ValidationWarning {
         private final String code;
         private final String message;
@@ -183,7 +183,7 @@ public class MindMapValidationResult {
         public String getNodeId() { return nodeId; }
     }
 
-    /** 思维导图统计信息 */
+    /** Mind-map statistics. */
     public static class MindMapStatistics {
         private int totalNodes;
         private int maxDepth;

@@ -10,9 +10,10 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * 思维导图提示词优化器。
- * 维护领域 Prompt 模板库，根据需求选择模板并填充参数。
- * 支持 YAML 格式（多行文本原生支持）。
+ * Mindmap prompt optimizer.
+ * Maintains a domain-specific prompt template library, selects the appropriate template
+ * for a request, and fills in its parameters.
+ * Supports YAML format (with native multi-line text support).
  */
 public class MindMapPromptOptimizer {
 
@@ -23,7 +24,7 @@ public class MindMapPromptOptimizer {
     }
 
     /**
-     * 加载 Prompt 模板（YAML 格式）
+     * Loads prompt templates from the YAML resource file.
      */
     private void loadTemplates() {
         try (InputStream is = getClass().getResourceAsStream("/org/freeplane/plugin/ai/buffer/prompts.yaml")) {
@@ -40,9 +41,9 @@ public class MindMapPromptOptimizer {
     }
 
     /**
-     * 优化提示词
-     * @param request 请求对象
-     * @return 优化后的提示词
+     * Optimises the prompt for the given request.
+     * @param request the buffer request
+     * @return the optimised prompt string
      */
     public String optimizePrompt(BufferRequest request) {
         String templateKey = selectTemplateKey(request);
@@ -53,7 +54,7 @@ public class MindMapPromptOptimizer {
             template = getDefaultTemplate(request);
         }
 
-        // 填充参数
+        // Fill in template parameters.
         String optimizedPrompt = fillTemplate(template, request);
         LogUtils.info("MindMapPromptOptimizer: optimized prompt length - " + optimizedPrompt.length() + " chars");
 
@@ -61,7 +62,7 @@ public class MindMapPromptOptimizer {
     }
 
     /**
-     * 从嵌套 Map 中获取模板值
+     * Retrieves a template value from the nested Map structure using a dot-separated key.
      */
     @SuppressWarnings("unchecked")
     private String getTemplate(String key) {
@@ -84,7 +85,7 @@ public class MindMapPromptOptimizer {
     }
 
     /**
-     * 选择合适的模板键
+     * Selects the appropriate template key based on the request type and language.
      */
     private String selectTemplateKey(BufferRequest request) {
         String language = request.getParameter("language", "zh");
@@ -103,26 +104,26 @@ public class MindMapPromptOptimizer {
     }
 
     /**
-     * 获取默认模板
+     * Returns a hard-coded default template when no YAML template is found.
      */
     private String getDefaultTemplate(BufferRequest request) {
-        String topic = request.getParameter("topic", "未知主题");
+        String topic = request.getParameter("topic", "Unknown topic");
         int maxDepth = request.getParameter("maxDepth", 3);
         String language = request.getParameter("language", "zh");
 
         if ("zh".equals(language)) {
             return String.format(
-                "请为'%s'生成一个完整的思维导图结构。\n" +
-                "要求：\n" +
-                "1. 包含 %d 层级的节点\n" +
-                "2. 返回严格的 JSON 格式\n" +
-                "3. 使用中文\n\n" +
-                "返回格式：\n" +
+                "Generate a complete mindmap structure for '%s'.\n" +
+                "Requirements:\n" +
+                "1. Include %d levels of nodes\n" +
+                "2. Return strict JSON format\n" +
+                "3. Use Chinese\n\n" +
+                "Return format:\n" +
                 "{\n" +
                 "  \"text\": \"%s\",\n" +
                 "  \"children\": []\n" +
                 "}\n\n" +
-                "请只返回 JSON。",
+                "Return JSON only.",
                 topic, maxDepth, topic
             );
         } else {
@@ -144,12 +145,12 @@ public class MindMapPromptOptimizer {
     }
 
     /**
-     * 填充模板参数
+     * Fills template placeholders with parameter values from the request.
      */
     private String fillTemplate(String template, BufferRequest request) {
         String result = template;
 
-        // 替换常见参数
+        // Replace common placeholder tokens.
         result = result.replace("{topic}", request.getParameter("topic", ""));
         result = result.replace("{maxDepth}", String.valueOf(request.getParameter("maxDepth", 3)));
         result = result.replace("{language}", request.getParameter("language", "zh"));

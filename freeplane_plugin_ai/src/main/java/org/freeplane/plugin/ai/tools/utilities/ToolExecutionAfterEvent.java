@@ -1,7 +1,7 @@
 package org.freeplane.plugin.ai.tools.utilities;
 
 /**
- * 工具执行成功事件。
+ * Event fired after a successful tool execution.
  */
 public record ToolExecutionAfterEvent(
         String toolName,

@@ -84,7 +84,7 @@ public class AIChatModelFactory {
             if (serviceAddress == null || serviceAddress.isEmpty()) {
                 serviceAddress = "https://qianfan.baidubce.com/v2";
             } else {
-                // 如果用户配置了完整路径（包含 /chat/completions），自动截断为 base URL
+                // If the user configured a full path (containing /chat/completions), trim it to the base URL.
                 if (serviceAddress.endsWith("/chat/completions")) {
                     serviceAddress = serviceAddress.substring(0, serviceAddress.length() - "/chat/completions".length());
                 }

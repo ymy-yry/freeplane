@@ -7,68 +7,70 @@ import org.freeplane.plugin.ai.service.impl.DefaultAgentService;
 import java.util.concurrent.ExecutorService;
 
 /**
- * 构建任务执行器 - 执行构建任务并通过 CompletableFuture 回传结果
- * 
- * 重要：执行时必须调用 dispatchAction 而非 processRequest，
- * 否则调度器线程池中的线程会再次提交任务并等待 future，导致死锁。
+ * Build task executor - executes build tasks and returns results via CompletableFuture.
+ *
+ * Important: must call dispatchAction rather than processRequest during execution;
+ * otherwise the scheduler's thread pool threads will re-submit tasks and wait for a future,
+ * causing a deadlock.
  */
 public class BuildTaskExecutor {
-    // 单例实例
+    // singleton instance
     private static final BuildTaskExecutor instance = new BuildTaskExecutor();
-    // 代理服务
+    // agent service
     private final DefaultAgentService agentService;
     
     /**
-     * 私有构造函数 - 初始化执行器组件
+     * Private constructor - initializes executor components.
      */
     private BuildTaskExecutor() {
         this.agentService = new DefaultAgentService();
     }
     
     /**
-     * 获取执行器单例实例
-     * @return 执行器实例
+     * Returns the executor singleton instance.
+     * @return executor instance
      */
     public static BuildTaskExecutor getInstance() {
         return instance;
     }
     
     /**
-     * 执行任务并通过 task.getFuture() 完成结果。
-     * 
-     * 应在调度器的线程池中调用。
-     * 直接调用 dispatchAction 而非 processRequest，避免再次进入调度路径（防死锁）。
-     * @param task 任务对象
-     * @return 服务响应
+     * Executes a task and completes the result via task.getFuture().
+     *
+     * Should be called from within the scheduler's thread pool.
+     * Calls dispatchAction directly rather than processRequest to avoid re-entering the
+     * scheduling path (deadlock prevention).
+     * @param task the task to execute
+     * @return service response
      */
     public AIServiceResponse executeTask(BuildTask task) {
-        LogUtils.info("BuildTaskExecutor: 执行任务: " + task);
+        LogUtils.info("BuildTaskExecutor: executing task: " + task);
         try {
-            // 确保 agent 已初始化（chatModel 、toolSet 等）
+            // ensure the agent is initialized (chatModel, toolSet, etc.)
             agentService.ensureAgentInitializedPublic();
-            // 直接调用底层分发方法，跳过调度器入口
+            // call the underlying dispatch method directly, bypassing the scheduler entry point
             AIServiceResponse response = agentService.dispatchAction(task.getAction(), task.getRequest());
             if (response.isSuccess()) {
-                LogUtils.info("BuildTaskExecutor: 任务执行成功: " + task.getId());
+                LogUtils.info("BuildTaskExecutor: task succeeded: " + task.getId());
             } else {
-                LogUtils.warn("BuildTaskExecutor: 任务执行失败: " + task.getId() + ", error: " + response.getErrorMessage());
+                LogUtils.warn("BuildTaskExecutor: task failed: " + task.getId() + ", error: " + response.getErrorMessage());
             }
-            // 通过 future 将结果回传给等待方
+            // return the result to the waiting caller via future
             task.getFuture().complete(response);
             return response;
         } catch (Exception e) {
-            LogUtils.warn("BuildTaskExecutor: 执行任务异常: " + task.getId(), e);
-            AIServiceResponse errResp = AIServiceResponse.error("执行任务失败: " + e.getMessage());
+            LogUtils.warn("BuildTaskExecutor: task threw exception: " + task.getId(), e);
+            AIServiceResponse errResp = AIServiceResponse.error("Task execution failed: " + e.getMessage());
             task.getFuture().complete(errResp);
-            throw new RuntimeException("执行任务失败: " + e.getMessage(), e);
+            throw new RuntimeException("Task execution failed: " + e.getMessage(), e);
         }
     }
 
     /**
-     * 异步执行任务，复用外部传入的线程池而非新建裸线程。
-     * @param task 任务对象
-     * @param executorService 线程池（应使用调度器的内部线程池）
-     * @param callback 异步回调（可选）
+     * Executes a task asynchronously, reusing the provided thread pool instead of creating a new bare thread.
+     * @param task the task to execute
+     * @param executorService thread pool (should be the scheduler's internal pool)
+     * @param callback async callback (optional)
      */
     public void executeTaskAsync(BuildTask task, ExecutorService executorService, TaskExecutionCallback callback) {
         executorService.submit(() -> {
@@ -82,8 +84,8 @@ public class BuildTaskExecutor {
     }
 
     /**
-     * @deprecated 请使用 executeTaskAsync(task, executorService, callback)。
-     * 保留此方法仅为兼容旧代码，将在未来版本移除。
+     * @deprecated Use executeTaskAsync(task, executorService, callback) instead.
+     * Retained for backward compatibility only; will be removed in a future release.
      */
     @Deprecated
     public void executeTaskAsync(BuildTask task, TaskExecutionCallback callback) {
@@ -93,7 +95,7 @@ public class BuildTaskExecutor {
     }
     
     /**
-     * 任务执行回调接口
+     * Task execution callback interface.
      */
     public interface TaskExecutionCallback {
         void onComplete(BuildTask task, AIServiceResponse response);

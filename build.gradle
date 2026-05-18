@@ -172,9 +172,10 @@ configure(subprojects.findAll {it.name =~ /plugin/ || it.name =~ /^freeplane$/ |
    }
    
    // Gradle 9.0 is stricter about test discovery - many subprojects have non-JUnit test files
-   test {
-       failOnNoDiscoveredTests = false
-   }
+   // TODO: Re-enable when upgrading to Gradle 9.0+
+   // test {
+   //     failOnNoDiscoveredTests = false
+   // }
    
    jar.dependsOn cleanBUILD
 }

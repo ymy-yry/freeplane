@@ -56,18 +56,6 @@ public class ModelContextProtocolToolRegistry {
     }
 
     /**
-     * Invalidates the cache.
-     * Call this when the set of dynamically registered tools changes;
-     * the next call to {@link #listTools()} will rebuild the Schema list.
-     */
-    public void invalidateCache() {
-        synchronized (this) {
-            cachedTools = null;
-        }
-        LogUtils.info("ModelContextProtocolToolRegistry: tool schema cache invalidated");
-    }
-
-    /**
      * Internal build method: performs the reflection scan and recursive Schema expansion.
      * Only called on a cache miss or after invalidation.
      */

@@ -2,45 +2,49 @@ package org.freeplane.plugin.ai.tools.utilities;
 
 import org.freeplane.core.util.LogUtils;
 import org.freeplane.plugin.ai.mcpserver.ModelContextProtocolTool;
-import org.freeplane.plugin.ai.mcpserver.ToolSchemaIndex;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.util.Map;
+
 /**
  * Pre-execution argument validation observer.
  *
- * <p>Uses the {@link ToolSchemaIndex} to perform JSON-Schema-level validation of tool arguments
- * before execution reaches the EDT (Event Dispatch Thread), preventing complex rollback logic.
+ * <p>Validates tool arguments against their JSON Schema before execution reaches the EDT
+ * (Event Dispatch Thread), preventing complex rollback logic.
  */
 public class SchemaValidationObserver implements ToolExecutionObserver {
 
-    private final ToolSchemaIndex schemaIndex;
+    private final Map<String, ModelContextProtocolTool> toolSchemas;
     private final ObjectMapper objectMapper;
 
-    public SchemaValidationObserver(ToolSchemaIndex schemaIndex, ObjectMapper objectMapper) {
-        this.schemaIndex = schemaIndex;
+    public SchemaValidationObserver(Map<String, ModelContextProtocolTool> toolSchemas, ObjectMapper objectMapper) {
+        this.toolSchemas = toolSchemas;
         this.objectMapper = objectMapper;
     }
 
     @Override
     public void onBefore(ToolExecutionBeforeEvent event) {
-        if (schemaIndex == null) {
+        if (toolSchemas == null || toolSchemas.isEmpty()) {
             return;
         }
-        ModelContextProtocolTool tool = schemaIndex.get(event.toolName());
+        ModelContextProtocolTool tool = toolSchemas.get(event.toolName());
         if (tool == null) {
-            return; // tool not in index (schema cache may be disabled), skip validation
+            return; // tool schema not available, skip validation
         }
 
         String rawArgs = event.rawArguments();
-        if (rawArgs == null || rawArgs.trim().isEmpty() || "{}".equals(rawArgs.trim())) {
-            return;
-        }
-
+        JsonNode argsNode;
         try {
-            JsonNode argsNode = objectMapper.readTree(rawArgs);
+            if (rawArgs == null || rawArgs.isEmpty() || rawArgs.trim().isEmpty()) {
+                argsNode = objectMapper.createObjectNode();
+            } else {
+                argsNode = objectMapper.readTree(rawArgs);
+            }
             validateRequiredFields(tool, argsNode);
+        } catch (IllegalArgumentException error) {
+            throw error;
         } catch (Exception error) {
             LogUtils.info("SchemaValidationObserver: invalid arguments for tool '"
                 + event.toolName() + "': " + error.getMessage());
